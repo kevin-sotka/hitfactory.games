@@ -7,6 +7,8 @@ import { Narrator } from './narrator.js';
 import { Soundscape } from './audio.js';
 import { Viewport } from './scenes.js';
 import { drawFrame } from './frame.js';
+import { loadIndex, Loader, VoiceBank, EMPTY_INDEX } from './bank.js';
+import { scriptFor } from './script.js';
 
 const $ = id => document.getElementById(id);
 const PACE = globalThis.__DDRH_FAST ? 0.02 : 1; // tests run the clock fast
@@ -32,12 +34,17 @@ const state = {
   drift: store.get('drift', true),
   voice: store.get('voice', 1),
   ambience: store.get('ambience', 0.8),
+  music: store.get('music', 0.7),
   layers: store.get('layers', {}),
 };
 
 // ?seed=42 replays the same broadcast, for sharing a good one (and for tests).
 const seed = Number(new URLSearchParams(location.search).get('seed')) || Date.now();
-const engine = new StoryEngine({ drift: state.drift, seed });
+// Recordings arrive with audio/index.json; until then (or without it) all synthesis and device voices.
+let bank = new VoiceBank(EMPTY_INDEX, null);
+let musicFiles = {};
+let loader = null;
+const engine = new StoryEngine({ drift: state.drift, seed, prefer: (t, id) => bank.takeRecorded(t, id) });
 const narrator = new Narrator({ pace: PACE });
 const sound = new Soundscape();
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -156,7 +163,10 @@ function showStation(id) {
 
 function showVoice(s) {
   const v = narrator.describe(s);
-  const tail = narrator.ready === false ? 'warming up the valves'
+  const pct = Math.round(((state.recorded || {})[s.id] || 0) * 100);
+  const tail = pct >= 100 ? 'performed in full'
+    : pct > 0 ? `performed ${pct}%, device voice fills the gaps`
+    : narrator.ready === false ? 'warming up the valves'
     : narrator.captionsOnly ? '<em>captions only on this device</em>'
     : v.accent ? `voice: ${escapeHtml(v.name)}`
     : `<em>${escapeHtml(v.name)} standing in, accent not installed</em>`;
@@ -217,6 +227,7 @@ function engage() {
   narrator.unlock();
   sound.setAmbience(state.ambience);
   sound.setRadioLevel(state.voice);
+  sound.setMusicLevel(state.music);
   sound.setScene(activeIds());
   $('engage').classList.add('gone');
   showStatus();
@@ -240,12 +251,11 @@ function selectStation(id) {
   showStation(id);
   if (engine.playing && engine.switchStation(id)) {
     run++;
-    narrator.cancel();
+    hush();
     program = null;
     if (state.playing) {
       sound.tune(1.0);
-      const my = run;
-      setTimeout(() => { if (my === run) broadcast(my); }, 1000 * PACE);
+      startAfter(id, 1000);
     }
   }
 }
@@ -278,6 +288,7 @@ async function broadcast(my) {
       sentenceIndex = 0;
       if (!program) return endOfBroadcast();
       markBeat(program.beat, program.storyId, 'now');
+      if (sound.ctx) for (const seg of program.segments) if (bank.covers(seg.parts)) bank.prefetch(sound.ctx, seg.parts).catch(() => {});
     }
     while (segIndex < program.segments.length) {
       const seg = program.segments[segIndex];
@@ -285,6 +296,7 @@ async function broadcast(my) {
         sound.tune(1.1);
         state.station = seg.storyId;
         showStation(seg.storyId);
+        stationMusic(seg.storyId, 900);
         idleCaption('~ signal drifting ~');
         await wait(1100);
         if (my !== run) return;
@@ -294,11 +306,21 @@ async function broadcast(my) {
       const story = storyById(seg.storyId);
       showCaption(seg.text);
       sound.duck(true);
-      const ok = await narrator.speak(seg.text, story, {
-        from: sentenceIndex,
-        onSentence: (i, s) => { sentenceIndex = i; highlight(s.start, 0); },
-        onWord: highlight,
-      });
+      let ok = 'missing';
+      if (bank.covers(seg.parts) && sound.ctx) {
+        ok = await bank.speak(sound.ctx, sound.voice, seg, {
+          from: sentenceIndex,
+          onPart: i => { sentenceIndex = i; },
+          onWord: highlight,
+        });
+      }
+      if (ok === 'missing') {
+        ok = await narrator.speak(seg.text, story, {
+          from: sentenceIndex,
+          onSentence: (i, s) => { sentenceIndex = i; highlight(s.start, 0); },
+          onWord: highlight,
+        });
+      }
       sound.duck(false);
       if (my !== run || !ok) return;
       segIndex++;
@@ -313,10 +335,43 @@ async function broadcast(my) {
   }
 }
 
+function hush() {
+  narrator.cancel();
+  bank.cancel();
+}
+
+// The station's ident after the static, then its music bed under the story.
+// Resolves with how long to wait before the narrator starts.
+async function stationMusic(id, delayMs = 0, withIdent = true) {
+  const m = musicFiles[id];
+  if (!sound.ctx) return delayMs;
+  if (!m) { sound.musicBed(null); return delayMs; }
+  try {
+    const [ident, bed] = await Promise.all([withIdent && m.ident && loader.get(sound.ctx, m.ident), m.bed && loader.get(sound.ctx, m.bed)]);
+    await wait(delayMs);
+    if (!state.playing || state.station !== id) return 0;
+    if (ident) sound.ident(ident);
+    sound.musicBed(bed || null);
+    return ident ? Math.min(6, ident.duration * 0.85) * 1000 : 0;
+  } catch (e) {
+    console.warn('music failed to load', e);
+    return 0;
+  }
+}
+
+// Start the broadcast loop after the ident (if any) has had its moment.
+async function startAfter(id, delayMs, withIdent = true) {
+  const my = run;
+  const extra = await stationMusic(id, delayMs, withIdent);
+  await wait(extra);
+  if (my === run && state.playing) broadcast(my);
+}
+
 function endOfBroadcast() {
   state.playing = false;
   state.paused = false;
   sound.carrier(false);
+  sound.musicBed(null);
   idleCaption('End of broadcast. Press play for a fresh reel, or try another scene.');
   showStatus();
 }
@@ -328,7 +383,8 @@ function play() {
     state.paused = false;
     state.playing = true;
     showStatus();
-    broadcast(++run);
+    run++;
+    startAfter(state.station, 0, false);
     return;
   }
   engine.setDrift(state.drift);
@@ -340,15 +396,16 @@ function play() {
   showStatus();
   idleCaption('Tuning in...');
   sound.tune(0.7);
-  const my = ++run;
-  setTimeout(() => { if (my === run) broadcast(my); }, 700 * PACE);
+  run++;
+  startAfter(state.station, 700);
 }
 
 function pause() {
   run++;
-  narrator.cancel();
+  hush();
   sound.duck(false);
   sound.carrier(false);
+  sound.musicBed(null);
   state.playing = false;
   state.paused = true;
   showStatus();
@@ -356,11 +413,12 @@ function pause() {
 
 function stop() {
   run++;
-  narrator.cancel();
+  hush();
   engine.stop();
   program = null;
   sound.duck(false);
   sound.carrier(false);
+  sound.musicBed(null);
   state.playing = false;
   state.paused = false;
   resetBeats();
@@ -383,6 +441,9 @@ function wire() {
   const vv = $('voice-vol');
   vv.value = state.voice;
   vv.addEventListener('input', () => { state.voice = +vv.value; store.set('voice', state.voice); narrator.volume = state.voice; sound.setRadioLevel(state.voice); });
+  const mv = $('music-vol');
+  mv.value = state.music;
+  mv.addEventListener('input', () => { state.music = +mv.value; store.set('music', state.music); sound.setMusicLevel(state.music); });
   const av = $('amb-vol');
   av.value = state.ambience;
   av.addEventListener('input', () => { state.ambience = +av.value; store.set('ambience', state.ambience); sound.setAmbience(state.ambience); });
@@ -444,7 +505,21 @@ narrator.init(STORIES).then(() => {
   showVoice(storyById(state.station));
   showStatus();
 });
+const scriptSize = Object.fromEntries(STORIES.map(s => [s.id, scriptFor(s.id).length]));
+loadIndex('audio/').then(index => {
+  loader = new Loader(index.base);
+  bank = new VoiceBank(index, loader, { pace: PACE });
+  musicFiles = index.music || {};
+  sound.useRecordings(index, loader);
+  state.recorded = Object.fromEntries(STORIES.map(s => [s.id, bank.coverage(s.id, scriptSize[s.id])]));
+  const hasMusic = Object.keys(musicFiles).length > 0;
+  document.querySelector('.fader.music').hidden = !hasMusic;
+  // Anything already playing synthetically swaps to its recordings.
+  if (state.engaged && Object.keys(index.sfx || {}).length) { sound.setScene([]); sound.setScene(activeIds()); }
+  showVoice(storyById(state.station));
+  state.indexReady = true;
+});
 requestAnimationFrame(frame);
 
 // A handle for the test harness and the curious.
-globalThis.__ddrh = { state, engine, narrator, sound, view, selectEnv, selectStation, toggleLayer, play, stop, pause };
+globalThis.__ddrh = { state, engine, narrator, sound, view, selectEnv, selectStation, toggleLayer, play, stop, pause, get bank() { return bank; } };

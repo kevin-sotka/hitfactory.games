@@ -36,13 +36,14 @@ So stations are interchangeable mid-story:
 
 `?seed=42` replays the same broadcast.
 
-## Voices
+## Sound and voices
 
-The narrator uses the speech voices installed on the listener's device, so it
-costs nothing and needs no keys. Each station picks the closest voice to its
-accent; the radio says which voice is standing in when an accent is not
-installed. Macs and iPhones usually have all five. With no speech engine at all,
-the story plays as captions at reading pace.
+Out of the box every sound is synthesised live and the narrators use the
+listener's device voices (or captions, with no speech engine). Recordings
+replace those piece by piece as they are added: performed narration recorded
+in the built-in booth (`record.html`), real ambiences from Freesound, generated
+effects for the impossible ones, and station music. See **AUDIO.md** for the
+whole production plan.
 
 ## Files
 
@@ -54,6 +55,11 @@ the story plays as captions at reading pace.
 - `js/scenes.js` the five window scenes, drawn in canvas
 - `js/frame.js` the window frame
 - `js/app.js` wiring
+- `js/script.js` the recording script: every recordable piece of every line
+- `js/bank.js` loads `audio/index.json` and stitches recorded narration
+- `js/samples.js` sound elements built from recordings
+- `record.html`, `js/booth.js`, `js/wav.js` the recording booth
+- `tools/` build, fetch and generate audio (see AUDIO.md)
 
 ## Running and testing
 
@@ -67,8 +73,8 @@ Tests need Node 20+ and Playwright with Chromium:
 
 ```
 npm test           # everything
-npm run test:unit  # 32 tests: story engine and narrator
-npm run test:e2e   # 14 tests in headless Chromium
+npm run test:unit  # 48 tests: story engine, script, narrator, audio tools
+npm run test:e2e   # 22 tests in headless Chromium
 ```
 
 The end-to-end suite swaps in a fake speech engine so a whole broadcast runs in

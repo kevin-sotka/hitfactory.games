@@ -76,6 +76,11 @@ test('a missing accent falls back to any English voice and says so', () => {
   assert.equal(scot.accent, false, 'English is not Scottish');
 });
 
+test('one voice on the machine: every station still speaks with it', async () => {
+  const n = await new Narrator({ synth: new FakeSynth(LINUX), Utterance: FakeUtterance }).init(STORIES);
+  for (const s of STORIES) assert.equal(n.cast.get(s.id).voice.name, 'English (America)', s.id);
+});
+
 test('stations spread across voices when they can', async () => {
   const n = await new Narrator({ synth: new FakeSynth([V('A', 'en-GB'), V('B', 'en-GB')]), Utterance: FakeUtterance }).init(STORIES);
   const market = n.cast.get('market').voice.name;

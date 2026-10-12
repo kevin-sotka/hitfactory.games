@@ -3,6 +3,8 @@
 // on tick(until), schedules its next events up to a time on the audio clock.
 // That same tick lets a test render any element offline, faster than real time.
 
+import { makeSampleLayer, matchGain } from './samples.js';
+
 const TAU = Math.PI * 2;
 
 // ---------- shared building blocks ----------
@@ -913,7 +915,16 @@ export class Soundscape {
     this.layers = new Map(); // id -> runtime
     this.events = [];
     this.ambienceLevel = 0.8;
+    this.musicLevel = 0.7;
     this.ducked = false;
+    this.sfx = {};       // element id -> { bed: [paths], shot: [paths] } of recordings
+    this.loader = null;
+  }
+
+  // Recordings to use in place of synthesis, from audio/index.json.
+  useRecordings(index, loader) {
+    this.sfx = index.sfx || {};
+    this.loader = loader;
   }
 
   get ready() { return !!this.ctx && this.ctx.state === 'running'; }
@@ -934,6 +945,13 @@ export class Soundscape {
       this.verb.connect(verbOut); verbOut.connect(this.ambience);
       this.radio = ctx.createGain(); this.radio.gain.value = 0.6; this.radio.connect(this.comp);
       this.ui = ctx.createGain(); this.ui.gain.value = 0.5; this.ui.connect(this.comp);
+      // Recorded narration: a touch of wireless colour, not a telephone.
+      this.voice = ctx.createGain(); this.voice.gain.value = 1;
+      const vhp = ctx.createBiquadFilter(); vhp.type = 'highpass'; vhp.frequency.value = 110;
+      const vpk = ctx.createBiquadFilter(); vpk.type = 'peaking'; vpk.frequency.value = 2800; vpk.gain.value = 2.5;
+      const vlp = ctx.createBiquadFilter(); vlp.type = 'lowpass'; vlp.frequency.value = 8000;
+      this.voice.connect(vhp); vhp.connect(vpk); vpk.connect(vlp); vlp.connect(this.comp);
+      this.music = ctx.createGain(); this.music.gain.value = this.musicLevel; this.music.connect(this.comp);
       this.uiKit = makeKit(ctx, this.ui, null, Math.random, () => {});
       this.timer = setInterval(() => this.tick(), 60);
     }
@@ -971,21 +989,65 @@ export class Soundscape {
     }
     const def = LAYERS[id];
     if (!def) return;
+    const files = this.sfx[id];
+    const recorded = files && ((files.bed && files.bed.length) || (files.shot && files.shot.length)) && this.loader;
     const ctx = this.ctx;
     const g = ctx.createGain();
     g.gain.value = 0.0001;
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 512;
     g.connect(analyser); analyser.connect(this.ambience);
-    const send = ctx.createGain(); send.gain.value = def.verb; g.connect(send); send.connect(this.verb);
+    const send = ctx.createGain(); send.gain.value = recorded ? Math.min(0.12, def.verb) : def.verb; g.connect(send); send.connect(this.verb);
     const pre = ctx.createGain(); pre.connect(g);
-    const kit = makeKit(ctx, pre, this.verb, Math.random, (type, at, data) => this.events.push({ layer: id, type, at, data }));
-    const inst = def.make(kit);
-    g.gain.setValueAtTime(0.0001, ctx.currentTime);
-    g.gain.linearRampToValueAtTime(def.trim, ctx.currentTime + 0.6);
-    const rt = { id, g, analyser, kit, inst, buf: new Float32Array(analyser.fftSize) };
+    const emit = (type, at, data) => this.events.push({ layer: id, type, at, data });
+    const rt = { id, g, analyser, kit: makeKit(ctx, pre, this.verb, Math.random, emit), inst: {}, buf: new Float32Array(analyser.fftSize), recorded: false };
     this.layers.set(id, rt);
-    try { inst.tick && inst.tick(ctx.currentTime + 0.35); } catch (e) { console.error(id, e); }
+    const start = (inst, level) => {
+      rt.inst = inst;
+      const t = ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(level, t + 0.6);
+      try { inst.tick && inst.tick(t + 0.35); } catch (e) { console.error(id, e); }
+    };
+    if (!recorded) { start(def.make(rt.kit), def.trim); return; }
+    const load = list => Promise.all((list || []).map(path => this.loader.get(ctx, path)));
+    Promise.all([load(files.bed), load(files.shot)]).then(([bed, shot]) => {
+      if (this.layers.get(id) !== rt) return; // switched off while loading
+      rt.kit = makeKit(ctx, pre, this.verb, Math.random, emit);
+      rt.recorded = true;
+      start(makeSampleLayer(rt.kit, id, { bed, shot }), 1);
+    }).catch(e => {
+      console.warn(`${id}: recordings failed to load, synthesising instead`, e);
+      if (this.layers.get(id) === rt) start(def.make(rt.kit), def.trim);
+    });
+  }
+
+  // ---- music: a station ident, and a bed under the story ----
+  setMusicLevel(v) {
+    this.musicLevel = v;
+    if (this.music) this.music.gain.setTargetAtTime(v * (this.ducked ? 0.55 : 1), this.ctx.currentTime, 0.2);
+  }
+  ident(buf) {
+    if (!this.ready || !buf) return;
+    const src = this.ctx.createBufferSource(); src.buffer = buf;
+    const g = this.ctx.createGain(); g.gain.value = matchGain(buf, 'shot') * 1.4;
+    src.connect(g); g.connect(this.music); src.start();
+  }
+  musicBed(buf) {
+    if (!this.ctx) return;
+    const t = this.now;
+    if (this.bed) {
+      const old = this.bed;
+      old.g.gain.setTargetAtTime(0, t, 0.6);
+      old.src.stop(t + 4);
+      this.bed = null;
+    }
+    if (!buf) return;
+    const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const g = this.ctx.createGain(); g.gain.value = 0;
+    g.gain.setTargetAtTime(matchGain(buf, 'bed') * 0.8, t + 0.8, 1.2);
+    src.connect(g); g.connect(this.music); src.start(t + 0.5);
+    this.bed = { src, g };
   }
 
   // Swap the whole scene: everything not in `want` fades out, the rest fades in.
@@ -1022,9 +1084,14 @@ export class Soundscape {
   duck(on) {
     this.ducked = on;
     this.setAmbience(this.ambienceLevel);
+    this.setMusicLevel(this.musicLevel);
   }
 
-  setRadioLevel(v) { if (this.radio) this.radio.gain.setTargetAtTime(v * 0.6, this.ctx.currentTime, 0.05); }
+  setRadioLevel(v) {
+    if (!this.radio) return;
+    this.radio.gain.setTargetAtTime(v * 0.6, this.ctx.currentTime, 0.05);
+    this.voice.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05);
+  }
 
   // ---- interface sounds ----
   click() {
@@ -1123,6 +1190,29 @@ export async function renderLayer(id, seconds = 10, { sampleRate = 22050, seed =
   }
   const loud = Math.sqrt(Math.max(...wins) / (win * buf.numberOfChannels));
   return { id, peak, rms: Math.sqrt(sum / n), loud, bad, events: events.map(e => e.type), firstEvent: events.length ? Math.min(...events.map(e => e.at)) : null };
+}
+
+// Render a recording-based element offline. make(ctx) returns { bed: [AudioBuffer], shot: [...] }.
+export async function renderSampleLayer(id, make, seconds = 20, { sampleRate = 22050, seed = 1 } = {}) {
+  const ctx = new OfflineAudioContext(2, Math.floor(seconds * sampleRate), sampleRate);
+  let s = seed >>> 0;
+  const rng = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  const events = [];
+  const kit = makeKit(ctx, ctx.destination, null, rng, (type, at, data) => events.push({ type, at, data }));
+  makeSampleLayer(kit, id, make(ctx)).tick(seconds);
+  const buf = await ctx.startRendering();
+  const win = Math.floor(sampleRate / 2);
+  const windows = [];
+  let peak = 0, bad = 0;
+  for (let w = 0; w + win <= buf.length; w += win) {
+    let e = 0;
+    for (let c = 0; c < 2; c++) {
+      const d = buf.getChannelData(c);
+      for (let i = w; i < w + win; i++) { const v = d[i]; if (!Number.isFinite(v)) { bad++; continue; } e += v * v; peak = Math.max(peak, Math.abs(v)); }
+    }
+    windows.push(Math.sqrt(e / (2 * win)));
+  }
+  return { peak, bad, windows, events };
 }
 
 export const _test = { morse, noise, pluck };

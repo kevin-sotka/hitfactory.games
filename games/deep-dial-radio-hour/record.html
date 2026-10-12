@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recording Booth</title>
+<meta name="description" content="Record the narrators of Deep Dial Radio Hour, one piece at a time.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Federant&family=Marcellus+SC&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a1418; --cream: #f6ecd4; --ink: #2b2115; --brass: #d6a53e; --brass-hi: #fff0b8; --brass-lo: #7c5418;
+  --enamel: #1d6a63; --enamel-deep: #0c3532; --cyan: #35f2ff; --magenta: #ff3ea5; --red: #ff4a3d; --hue: #ff9f43;
+  --display: Federant, 'Marcellus SC', Georgia, serif; --label: 'Marcellus SC', Georgia, serif; --mono: 'Share Tech Mono', ui-monospace, monospace;
+  --metal: linear-gradient(180deg, #fbf8f0 0%, #e2dccd 12%, #b2aa98 46%, #d9d2c2 78%, #8f8778 100%);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: radial-gradient(ellipse at 50% -20%, rgba(53,242,255,0.08), transparent 60%), linear-gradient(180deg, #12262c, var(--bg) 40%, #060c0f); color: var(--cream); font-family: var(--label); min-height: 100vh; }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 14px 16px 30px; }
+header { display: flex; align-items: center; gap: 16px; padding: 8px 20px; background: var(--metal); color: var(--ink); border-radius: 999px / 50px; border: 2px solid #5f574a; box-shadow: inset 0 2px 0 rgba(255,255,255,0.9), 0 8px 24px rgba(0,0,0,0.5); }
+header h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(20px, 3vw, 32px); color: #3d2a0a; text-shadow: 0 1px 0 rgba(255,255,255,0.85); flex: 1; }
+header a { color: #5a3d0e; font-size: 13px; letter-spacing: 0.1em; }
+.tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 14px 0; }
+.tabs button { position: relative; overflow: hidden; text-align: left; padding: 10px 12px 12px; border-radius: 12px; border: 1px solid #574f42; background: linear-gradient(180deg, #2b2925, #191814); display: flex; flex-direction: column; gap: 2px; }
+.tabs button b { font-family: var(--display); font-weight: 400; font-size: 17px; }
+.tabs button span { font-size: 11px; opacity: 0.65; letter-spacing: 0.05em; }
+.tabs button i { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.tabs button[aria-selected=true] { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 0 18px -6px var(--c); background: linear-gradient(180deg, #34413f, #1a2321); }
+.bench { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 16px; align-items: start; }
+.panel { background: var(--metal); border-radius: 18px; border: 2px solid #5d5548; padding: 14px; color: var(--ink); box-shadow: inset 0 2px 0 rgba(255,255,255,0.85), 0 12px 30px rgba(0,0,0,0.5); }
+.side { position: sticky; top: 12px; }
+.progress .tier { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 12px; margin-bottom: 8px; }
+.progress .tier i { grid-column: span 2; height: 6px; border-radius: 3px; background: #3a2706; overflow: hidden; }
+.progress .tier u { display: block; height: 100%; background: var(--hue); }
+.controls { display: flex; gap: 8px; align-items: center; margin: 10px 0; font-size: 12px; flex-wrap: wrap; }
+select { background: #fffaf0; border: 1px solid #5e5446; border-radius: 6px; padding: 3px 6px; color: var(--ink); max-width: 100%; }
+.list { list-style: none; margin: 0; padding: 4px; max-height: 58vh; overflow: auto; background: #0b1416; border-radius: 10px; box-shadow: inset 0 2px 8px #000; }
+.list .group { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass); padding: 10px 8px 4px; }
+.list .empty { color: var(--cream); padding: 16px; font-size: 13px; }
+.item { width: 100%; display: flex; gap: 8px; align-items: baseline; text-align: left; border: 0; background: transparent; color: var(--cream); padding: 5px 8px; border-radius: 6px; font-family: var(--mono); font-size: 13px; }
+.item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #3f3a31; }
+.item.done i { background: #5dff9e; box-shadow: 0 0 5px #5dff9e; }
+.item.stale i { background: #ffb547; }
+.item[aria-current=true] { background: rgba(255,255,255,0.1); box-shadow: inset 2px 0 0 var(--hue); }
+.card { background: radial-gradient(ellipse at 50% 0%, #0d2b2c, #071618 70%); color: #c9fdff; border-radius: 18px; padding: 22px 24px; box-shadow: inset 0 3px 12px #000, 0 0 0 3px #c9a35c, 0 0 0 5px #4d330a; font-family: var(--mono); }
+.who { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hue); }
+.persona { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: rgba(201,253,255,0.7); }
+.say { margin: 22px 0 10px; font-family: Georgia, 'Times New Roman', serif; font-size: clamp(26px, 3.4vw, 40px); line-height: 1.25; color: #fff; text-shadow: 0 0 18px rgba(53,242,255,0.35); }
+.context { font-size: 15px; line-height: 1.6; color: rgba(201,253,255,0.55); }
+.context mark { background: none; color: #fff; text-decoration: underline 2px var(--hue); text-underline-offset: 4px; }
+.note { margin: 10px 0 0; font-size: 13px; color: #ffb547; min-height: 1.2em; }
+.take-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 18px; font-size: 12px; }
+#take-state.done { color: #5dff9e; } #take-state.stale { color: #ffb547; } #take-state.todo { color: rgba(201,253,255,0.5); }
+#clip { opacity: 0.4; }
+.deck { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 16px; }
+.btn { border: 1px solid #5e5446; background: linear-gradient(180deg, #fffaf0, #cfc6b4); color: #3a2f20; border-radius: 10px; padding: 9px 14px; font-size: 13px; letter-spacing: 0.08em; box-shadow: inset 0 1px 0 #fff, 0 2px 4px rgba(0,0,0,0.35); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.rec { display: flex; align-items: center; gap: 10px; border: 0; border-radius: 999px; padding: 10px 22px 10px 12px; background: radial-gradient(circle at 35% 30%, #ffd6d0, var(--red) 45%, #7a0f08); color: #fff; font-size: 16px; letter-spacing: 0.12em; box-shadow: 0 0 0 3px #3a0a06, 0 4px 10px rgba(0,0,0,0.5); }
+.rec::before { content: ''; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 5px var(--red); }
+body.recording .rec { animation: pulse 1s infinite; }
+body.recording .rec::before { border-radius: 4px; }
+body.recording .card { box-shadow: inset 0 3px 12px #000, 0 0 0 3px var(--red), 0 0 30px rgba(255,74,61,0.6); }
+@keyframes pulse { 50% { box-shadow: 0 0 0 3px #3a0a06, 0 0 24px 6px rgba(255,74,61,0.7); } }
+.meter { flex: 1; min-width: 120px; height: 12px; background: #050909; border-radius: 6px; overflow: hidden; box-shadow: inset 0 1px 3px #000; }
+#meter-fill { height: 100%; width: 0; background: #2a5a55; transition: width 0.05s; }
+#meter-fill.good { background: #5dff9e; } #meter-fill.hot { background: var(--red); }
+.opts { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin-top: 12px; color: rgba(201,253,255,0.75); }
+#status { margin-top: 14px; min-height: 1.4em; font-size: 13px; color: rgba(201,253,255,0.8); }
+#status.ok { color: #5dff9e; } #status.bad { color: #ffb547; } #status.live { color: var(--red); }
+#mic-state.ok { color: #1f7a3a; }
+.help { margin-top: 16px; font-size: 13px; line-height: 1.6; color: rgba(246,236,212,0.75); }
+.help code, .help kbd { font-family: var(--mono); font-size: 12px; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; }
+@media (max-width: 860px) { .bench { grid-template-columns: 1fr; } .side { position: static; } .list { max-height: 34vh; } .tabs { grid-template-columns: repeat(5, minmax(0, 1fr)); } .tabs button span { display: none; } }
+@media (max-width: 520px) { .tabs button b { font-size: 12px; } .card { padding: 16px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>Recording Booth</h1><a href="./">Back to the radio</a></header>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Narrator"></nav>
+  <div class="bench">
+    <aside class="panel side">
+      <div class="progress" id="progress"></div>
+      <div class="controls">
+        <label>Show <select id="filter"><option value="todo">Still to record</option><option value="done">Recorded</option><option value="all">Everything</option></select></label>
+      </div>
+      <ol class="list" id="list"></ol>
+      <div class="controls">
+        <button class="btn" id="export" type="button">Export this narrator</button>
+        <button class="btn" id="export-all" type="button">Export all</button>
+      </div>
+    </aside>
+    <main>
+      <section class="card" id="card" aria-live="polite">
+        <div class="who"><span id="who"></span><span id="take-state"></span></div>
+        <p class="persona" id="persona"></p>
+        <p class="say" id="say"></p>
+        <div class="context" id="context"></div>
+        <p class="note" id="note"></p>
+        <div class="deck">
+          <button class="rec" id="rec" type="button" aria-pressed="false"><span id="rec-label">Record</span></button>
+          <button class="btn" id="play" type="button">Play take</button>
+          <button class="btn" id="hear" type="button">Hear the line</button>
+          <button class="btn" id="clear" type="button">Delete take</button>
+          <button class="btn" id="prev" type="button" aria-label="Previous">&uarr;</button>
+          <button class="btn" id="next" type="button" aria-label="Next">&darr;</button>
+        </div>
+        <div class="deck">
+          <button class="btn" id="mic" type="button">Open mic</button>
+          <select id="device" aria-label="Microphone"></select>
+          <div class="meter" aria-hidden="true"><div id="meter-fill"></div></div>
+        </div>
+        <div class="opts">
+          <label><input type="checkbox" id="auto" checked> Move on after each take</label>
+          <label><input type="checkbox" id="playback"> Play back each take</label>
+        </div>
+        <div id="status"></div>
+        <div class="take-row"><span id="mic-state">Mic closed</span><span id="clip"></span></div>
+      </section>
+      <div class="help">
+        <p><kbd>R</kbd> or <kbd>Enter</kbd> record and stop, <kbd>Space</kbd> play the take, <kbd>H</kbd> hear the whole line, <kbd>&uarr;</kbd> <kbd>&darr;</kbd> move.</p>
+        <p>Read only the big words. The faint line underneath is the whole sentence, so you know where your piece sits: if it runs straight into a name, leave it hanging; if it ends a sentence, land it. Names and places are said mid sentence. Silence before and after is trimmed and every take is levelled for you, so just leave a breath either side.</p>
+        <p>Takes stay in this browser between visits. When a narrator is done (or whenever you like), export the zip and run <code>node tools/build-audio.mjs --zip &lt;file&gt;</code> in the game folder.</p>
+      </div>
+    </main>
+  </div>
+</div>
+<script type="module" src="js/booth.js"></script>
+</body>
+</html>

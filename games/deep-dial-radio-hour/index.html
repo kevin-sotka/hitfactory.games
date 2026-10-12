@@ -366,7 +366,8 @@ button { cursor: pointer; }
 .flip input:checked + .flip-ui { background: linear-gradient(180deg, #7a1650, var(--magenta)); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5), 0 0 10px rgba(255,62,165,0.6); }
 .flip input:checked + .flip-ui::after { transform: translateX(22px); }
 .flip input:focus-visible + .flip-ui { outline: 2px solid var(--cyan); outline-offset: 2px; }
-.faders { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.faders { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 12px; }
+.fader[hidden] { display: none; }
 .fader { display: flex; flex-direction: column; gap: 2px; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #2b1d06; }
 .fader input { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; background: transparent; }
 .fader input::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(180deg, #1b150e, #4b4234); box-shadow: inset 0 1px 2px #000; }
@@ -496,6 +497,7 @@ footer a { color: var(--brass); }
           <div class="faders">
             <label class="fader">Voice<input type="range" id="voice-vol" min="0" max="1" step="0.05" value="1"></label>
             <label class="fader">Ambience<input type="range" id="amb-vol" min="0" max="1" step="0.05" value="0.8"></label>
+            <label class="fader music" hidden>Music<input type="range" id="music-vol" min="0" max="1" step="0.05" value="0.7"></label>
           </div>
         </div>
         <p class="hint">Keys: <kbd>1</kbd> to <kbd>5</kbd> stations &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> scenes &middot; <kbd>Space</kbd> play</p>
