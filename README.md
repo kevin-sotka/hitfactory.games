@@ -13,6 +13,7 @@ code; there are no 3D assets.
 - `assets/thumbs/*.jpg` - one still per game, used as the promo plate and video poster
 - `assets/loops/*.mp4` - four second gameplay loops, 512x384, lazy loaded one at a time
 - `games.json` - the studio catalogue this page renders from
+- `games/` - games that live in this repo rather than their own (each folder has its own README)
 
 ## Cost
 
