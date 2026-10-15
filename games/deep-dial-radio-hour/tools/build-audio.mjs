@@ -68,7 +68,9 @@ export function unzip(buf, dest) {
 function ffmpeg(input, output, kind) {
   const trim = 'silenceremove=start_periods=1:start_threshold=-48dB:start_silence=0.02,areverse,silenceremove=start_periods=1:start_threshold=-48dB:start_silence=0.06,areverse';
   const plans = {
-    voice: ['-af', `${trim},loudnorm=I=-18:TP=-1.5:LRA=9`, '-ac', '1', '-ar', '44100', '-b:a', '80k'],
+    // Booth takes are already levelled and rendered voices are consistent, so only trim:
+    // loudness normalising a one-word clip does more harm than good.
+    voice: ['-af', trim, '-ac', '1', '-ar', '44100', '-b:a', '80k'],
     bed: ['-t', '75', '-ac', '2', '-ar', '44100', '-b:a', '112k'],
     shot: ['-ac', '2', '-ar', '44100', '-b:a', '112k'],
     music: ['-ac', '2', '-ar', '44100', '-b:a', '160k'],
@@ -77,19 +79,33 @@ function ffmpeg(input, output, kind) {
 }
 
 function kindOf(relPath) {
-  if (relPath.startsWith('voice/')) return 'voice';
+  if (relPath.startsWith('voice/') || relPath.startsWith('voice-ai/')) return 'voice';
   if (relPath.startsWith('music/')) return 'music';
   return /\/bed[^/]*$/.test(relPath) ? 'bed' : 'shot';
 }
 
-function convertAll() {
-  let done = 0, skipped = 0;
-  for (const f of walk(SRC)) {
+// Rendered voices (voice-ai/) fill in wherever there is no human take (voice/).
+export function pickSources(files, srcDir) {
+  const byTarget = new Map();
+  for (const f of files) {
     const ext = path.extname(f).toLowerCase();
     if (!SOURCE.has(ext)) continue;
-    const r = rel(SRC, f);
+    const r = rel(srcDir, f);
+    if (r.startsWith('sfx-candidates/')) continue;
+    const out = r.replace(/^voice-ai\//, 'voice/').replace(/\.[^.]+$/, '');
+    const human = !r.startsWith('voice-ai/');
+    const prev = byTarget.get(out);
+    if (!prev || (human && !prev.human)) byTarget.set(out, { file: f, rel: r, out, human });
+  }
+  return [...byTarget.values()];
+}
+
+function convertAll() {
+  let done = 0, skipped = 0;
+  for (const { file: f, rel: r, out } of pickSources(walk(SRC), SRC)) {
+    const ext = path.extname(f).toLowerCase();
     const kind = kindOf(r);
-    const target = path.join(OUT, hasFfmpeg ? r.replace(/\.[^.]+$/, '.mp3') : r);
+    const target = path.join(OUT, out + (hasFfmpeg ? '.mp3' : ext));
     if (fs.existsSync(target) && fs.statSync(target).mtimeMs >= fs.statSync(f).mtimeMs) { skipped++; continue; }
     fs.mkdirSync(path.dirname(target), { recursive: true });
     if (hasFfmpeg) ffmpeg(f, target, kind);
@@ -132,7 +148,7 @@ export function buildIndex(outDir) {
 function staleTakes() {
   const script = new Map(FULL_SCRIPT().map(x => [x.clip, x]));
   const stale = [];
-  for (const f of walk(path.join(SRC, 'voice')).filter(f => f.endsWith('takes.json'))) {
+  for (const f of [...walk(path.join(SRC, 'voice')), ...walk(path.join(SRC, 'voice-ai'))].filter(f => f.endsWith('takes.json'))) {
     const takes = JSON.parse(fs.readFileSync(f, 'utf8'));
     for (const [clip, said] of Object.entries(takes)) {
       const now = script.get(clip);

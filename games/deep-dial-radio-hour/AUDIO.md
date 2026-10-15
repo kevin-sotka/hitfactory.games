@@ -17,7 +17,30 @@ After adding anything, run `node tools/build-audio.mjs` in this folder. It
 trims and levels voices, encodes everything to MP3 (needs `ffmpeg`), writes
 `audio/index.json`, and prints what is covered.
 
-## 1. Narration: five performers
+## Quick start with ElevenLabs
+
+With `ELEVENLABS_API_KEY` set (an environment secret in a cloud session, or
+`.env` in this folder, copied from `.env.example`):
+
+```
+npm run voices:cast     # pick a library voice per accent, saved to tools/voices.json
+npm run voices:render   # render all ~1,140 narration pieces (about 33,000 characters)
+npm run sfx:generate    # generate all 30 sound elements, 2 takes each (about 13 minutes of audio)
+npm run audio:build     # trim, encode, index
+```
+
+Or `npm run audio:all` for the lot. Add `--tier 1` to `voices:render` to do
+each station's home story first (about 12,700 characters), and `--dry-run` to
+any of them to see what it would do without spending credits. Recast a
+narrator by editing their `voice_id` in `tools/voices.json` and rerunning
+`voices:render -- --narrator docks --redo`.
+
+Each piece is rendered with the words around it in its finished line, so the
+stitched lines keep a natural flow. Human takes from the booth always win over
+rendered ones for the same piece, so you can replace any line with a real
+performance later.
+
+## 1. Narration by hand: five performers
 
 Each narrator records about 230 short pieces, roughly 1,200 words, which
 comes to around 8 minutes of finished audio and an hour or so in the booth.
@@ -70,11 +93,12 @@ fist's width from the mic, slightly off axis to avoid pops. Keep the same
 distance and energy for the whole session so pieces match when stitched.
 Names and places want a neutral, mid-sentence read.
 
-## 2. Sound effects: real recordings, AI for the impossible
+## 2. Sound effects: real recordings, generated for the rest
 
 `tools/sfx-sources.mjs` lists what each of the 30 elements wants.
 
-**Real recordings (Freesound, CC0 only).** Get a free API token at
+**Real recordings (Freesound, CC0 only).** Freesound refuses requests from
+cloud machines, so run this one on your own computer. Get a free API token at
 https://freesound.org/apiv2/apply, then:
 
 ```

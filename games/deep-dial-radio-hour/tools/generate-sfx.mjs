@@ -12,9 +12,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadEnv } from './env.mjs';
 import { SOURCES } from './sfx-sources.mjs';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+loadEnv();
 const args = process.argv.slice(2);
 const opt = name => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
 const only = (opt('--only') || '').split(',').filter(Boolean);
@@ -37,7 +39,9 @@ export function jobs() {
 
 async function main() {
   const list = jobs();
-  if (DRY) { for (const j of list) console.log(`${j.id}: ${j.seconds}s "${j.prompt}" -> ${path.relative(GAME, j.file)}`); return; }
+  const todo = list.filter(j => !fs.existsSync(j.file));
+  console.log(`${todo.length} sounds to generate, ${todo.reduce((n, j) => n + Math.min(22, j.seconds), 0)} seconds of audio.`);
+  if (DRY) { for (const j of todo) console.log(`${j.id}: ${j.seconds}s "${j.prompt}" -> ${path.relative(GAME, j.file)}`); return; }
   if (!KEY) { console.error('Set ELEVENLABS_API_KEY, or use --dry-run.'); process.exit(1); }
   for (const j of list) {
     if (fs.existsSync(j.file)) { console.log(`have ${path.relative(GAME, j.file)}`); continue; }

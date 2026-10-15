@@ -4,7 +4,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { processTake, encodeWav, decodeWav, zipStore, crc32 } from '../js/wav.js';
-import { unzip, buildIndex } from '../tools/build-audio.mjs';
+import { unzip, buildIndex, pickSources } from '../tools/build-audio.mjs';
+import { renderRequest, ttsText, CASTING } from '../tools/render-voices.mjs';
+import { FULL_SCRIPT } from '../js/script.js';
+import { STORIES } from '../js/data.js';
 
 const SR = 48000;
 function fakeTake({ lead = 0.8, speech = 1.2, tail = 0.9, level = 0.3, noise = 0.002 } = {}) {
@@ -79,4 +82,22 @@ test('the index knows voices, sound elements and music, and flags strays', () =>
   assert.deepEqual(index.music.trench, { bed: 'music/trench-bed.mp3', ident: 'music/trench-ident.mp3' });
   assert.equal(warnings.length, 3, warnings.join('\n'));
   fs.rmSync(dir, { recursive: true });
+});
+
+test('every script piece makes a sensible voice request, with its surrounding words', () => {
+  for (const item of FULL_SCRIPT()) {
+    const r = renderRequest(item);
+    assert.ok(r.text.length > 0, item.clip);
+    for (const v of Object.values(r)) assert.ok(!/[{}]|undefined|\[/.test(v), `${item.clip}: ${v}`);
+    if (item.template && item.context.length > 1) assert.ok(r.previous_text || r.next_text, `${item.clip} has context`);
+  }
+  assert.equal(ttsText('KDRY 540 plays The 4:15'), 'K. D. R. Y. five forty plays The four fifteen');
+  for (const s of STORIES) assert.ok(CASTING[s.id] && CASTING[s.id].fallback, s.id);
+});
+
+test('a human take beats a rendered one for the same clip', () => {
+  const src = '/x';
+  const picked = pickSources(['/x/voice-ai/docks/b1v0-0.mp3', '/x/voice/docks/b1v0-0.wav', '/x/voice-ai/docks/b1v0-1.mp3', '/x/sfx/wind/bed-1.wav', '/x/sfx-candidates/wind/bed-9.mp3'], src);
+  const byOut = Object.fromEntries(picked.map(p => [p.out, p.rel]));
+  assert.deepEqual(byOut, { 'voice/docks/b1v0-0': 'voice/docks/b1v0-0.wav', 'voice/docks/b1v0-1': 'voice-ai/docks/b1v0-1.mp3', 'sfx/wind/bed-1': 'sfx/wind/bed-1.wav' });
 });

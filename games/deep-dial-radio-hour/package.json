@@ -8,7 +8,12 @@
     "test:unit": "node --test tests/*.test.mjs",
     "test:e2e": "node tests/e2e.mjs && node tests/e2e-recordings.mjs",
     "serve": "python3 -m http.server 8000",
-    "build:audio": "node tools/build-audio.mjs",
-    "record": "python3 -m http.server 8000"
+    "record": "python3 -m http.server 8000",
+    "voices:cast": "node tools/render-voices.mjs --cast",
+    "voices:render": "node tools/render-voices.mjs",
+    "sfx:generate": "node tools/generate-sfx.mjs",
+    "sfx:fetch": "node tools/fetch-freesound.mjs",
+    "audio:build": "node tools/build-audio.mjs",
+    "audio:all": "node tools/render-voices.mjs --cast && node tools/render-voices.mjs && node tools/generate-sfx.mjs && node tools/build-audio.mjs"
   }
 }

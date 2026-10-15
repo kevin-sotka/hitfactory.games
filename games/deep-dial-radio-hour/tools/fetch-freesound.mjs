@@ -17,9 +17,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadEnv } from './env.mjs';
 import { SOURCES, DURATION } from './sfx-sources.mjs';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+loadEnv();
 const args = process.argv.slice(2);
 const opt = name => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
 const only = (opt('--only') || '').split(',').filter(Boolean);

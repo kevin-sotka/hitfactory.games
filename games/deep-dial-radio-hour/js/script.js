@@ -96,7 +96,7 @@ export function scriptFor(narratorId) {
   const lines = (template, key, group, tier, note) => {
     for (const p of splitTemplate(template, story)) {
       if (p.type !== 'text') continue;
-      add({ id: `${key}-${p.n}`, say: sayable(p.text), group, tier, note, context: contextOf(template, story, p.n) });
+      add({ id: `${key}-${p.n}`, say: sayable(p.text), group, tier, note, template, n: p.n, context: contextOf(template, story, p.n) });
     }
   };
   story.beats.forEach((vs, b) => vs.forEach((t, v) => lines(t, `b${b}v${v}`, `Beat ${b + 1}`, v === 0 ? 1 : 2)));
@@ -109,9 +109,9 @@ export function scriptFor(narratorId) {
   for (const slot of CAST) {
     story.cast[slot].forEach((c, i) => {
       if (slot === 'thing') {
-        add({ id: `thing-${narratorId}${i}-a`, say: withA(c), group: 'Your cast', tier: 1, note: 'First mention, mid sentence.' });
+        add({ id: `thing-${narratorId}${i}-a`, say: withA(c), group: 'Your cast', tier: 1, slot: 'aThing', note: 'First mention, mid sentence.' });
       } else {
-        add({ id: `${slot}-${narratorId}${i}-intro`, say: c.intro, group: 'Your cast', tier: 1, note: 'Introducing them for the first time. Give it a little flourish.' });
+        add({ id: `${slot}-${narratorId}${i}-intro`, say: c.intro, group: 'Your cast', tier: 1, slot, intro: true, note: 'Introducing them for the first time. Give it a little flourish.' });
       }
     });
   }
@@ -123,6 +123,7 @@ export function scriptFor(narratorId) {
           say: slot === 'thing' ? c : c.short,
           group: s.id === narratorId ? 'Your cast' : `Visitors from ${s.station}`,
           tier: s.id === narratorId ? 1 : 3,
+          slot,
           note: slot === 'thing' ? 'Read as "the ..." would carry on: say only the words shown, mid sentence.' : 'A name in passing, mid sentence.',
         });
       });
@@ -130,11 +131,11 @@ export function scriptFor(narratorId) {
   }
   for (const env of ENVIRONMENTS) {
     for (const [k, v] of Object.entries(env.vocab)) {
-      add({ id: `${env.id}-${k}`, say: v, group: env.id === home.id ? 'Your scene' : `Scene: ${env.name}`, tier: env.id === home.id ? 1 : 3, note: 'Mid sentence, a touch of colour.' });
+      add({ id: `${env.id}-${k}`, say: v, group: env.id === home.id ? 'Your scene' : `Scene: ${env.name}`, tier: env.id === home.id ? 1 : 3, slot: k, note: 'Mid sentence, a touch of colour.' });
     }
   }
   for (const [pool, values] of Object.entries(story.pools)) {
-    values.forEach((v, i) => add({ id: `${pool}${i}`, say: v, group: 'Flavour', tier: 1, note: pool === 'exclaim' ? 'An exclamation. Go big.' : 'Mid sentence.' }));
+    values.forEach((v, i) => add({ id: `${pool}${i}`, say: v, group: 'Flavour', tier: 1, slot: pool, note: pool === 'exclaim' ? 'An exclamation. Go big.' : 'Mid sentence.' }));
   }
   return items.sort((a, b) => a.tier - b.tier);
 }
