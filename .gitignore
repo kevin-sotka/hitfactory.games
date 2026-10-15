@@ -1,0 +1,4 @@
+# raw recordings for games; only the encoded files in each game's audio/ ship
+games/*/audio-src/
+node_modules/
+.env
