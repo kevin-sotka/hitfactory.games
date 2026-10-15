@@ -117,13 +117,18 @@ async function cast() {
       console.log(`\n${id} (${want.accent}, ${want.search}):`);
       for (const v of list.slice(0, 5)) console.log(`  ${v.name} [${v.voice_id}] ${v.descriptive || ''} ${v.use_case || ''} ${v.preview_url || ''}`);
       pick = list[0];
-    } catch (e) { console.warn(`  library search failed: ${e.message}`); }
+    } catch (e) {
+      // A key without voices_read/voices_write cannot cast at all; falling back would quietly ship wrong accents.
+      if (/: 40[13] /.test(e.message)) throw new Error(`Casting needs an API key with voices_read and voices_write. ${e.message}`);
+      console.warn(`  library search failed: ${e.message}`);
+    }
     if (pick) {
       // A library voice has to be added to the account before it can speak.
       try {
         const added = await (await api(`/voices/add/${pick.public_owner_id}/${pick.voice_id}`, { method: 'POST', body: JSON.stringify({ new_name: `Deep Dial ${STORIES.find(s => s.id === id).narrator}` }) })).json();
         chosen[id] = { voice_id: added.voice_id, name: pick.name, from: 'library', preview_url: pick.preview_url };
       } catch (e) {
+        if (/: 40[13] /.test(e.message)) throw new Error(`Casting needs an API key with voices_read and voices_write. ${e.message}`);
         console.warn(`  could not add ${pick.name}: ${e.message}`);
         pick = null;
       }
