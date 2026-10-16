@@ -6,37 +6,40 @@
 
 // every: seconds between one-shots, first: delay before the first.
 // cue: picture events for beds, which have no moments of their own.
+// place: [dB, high cut Hz (0 for none), reverb send] puts the element at a distance.
+// Levelling makes every file equally loud, so this is where the mix lives: things far
+// off sit lower, lose their top end and pick up more of the room.
 export const SAMPLE_PLANS = {
-  wind: { cue: { type: 'gust', every: [2, 5], data: () => ({ strength: 0.6 + Math.random() * 0.35 }) } },
-  train: { every: [22, 34], first: [2, 4], event: 'train', pan: [0, 0] },
-  windmill: { every: [3.5, 6], first: [0.5, 1.5], event: 'creak', pan: [0.2, 0.5] },
-  telegraph: { every: [7, 12], first: [0.8, 2], event: 'tap', pan: [0.4, 0.6] },
-  coyote: { every: [14, 24], first: [2, 4], event: 'howl', pan: [-0.7, 0.7] },
-  cicadas: {},
-  crickets: {},
-  campfire: { cue: { type: 'pop', every: [0.8, 2.5] } },
-  creek: { cue: { type: 'lap', every: [1.6, 2.6] } },
-  owl: { every: [10, 18], first: [1.5, 3], event: 'hoot', pan: [-0.6, -0.4] },
-  guitar: { cue: { type: 'strum', every: [1.5, 2.6] } },
-  frogs: { every: [3, 7], first: [0.5, 2], event: 'ribbit', pan: [-0.8, 0.8], cue: { type: 'ribbit', every: [2.5, 6] } },
-  waves: { every: [5.5, 9], first: [1, 3], event: 'wave', pan: [-0.5, 0.5], cue: { type: 'wave', every: [5.5, 8.5], data: () => ({ size: 0.6 + Math.random() * 0.4 }) } },
-  gulls: { every: [3.5, 9], first: [0.5, 2], event: 'gull', pan: [-0.8, 0.8] },
-  foghorn: { every: [22, 34], first: [2, 4], event: 'horn', pan: [0.3, 0.5] },
-  buoy: { every: [4, 9], first: [0.5, 2], event: 'bell', pan: [-0.4, -0.2] },
-  rigging: { every: [1.5, 4.5], first: [0.3, 1.5], event: 'clink', pan: [-0.8, 0.8], cue: { type: 'clink', every: [1.5, 4] } },
-  pier: { every: [4, 9], first: [1, 3], event: 'creak', pan: [-0.5, 0.5] },
-  rain: {},
-  neon: { every: [2.5, 7], first: [0.5, 2], event: 'flicker', pan: [-0.3, 0.3] },
-  wok: { every: [4, 9], first: [0.5, 2], event: 'sizzle', pan: [-0.6, 0.6] },
-  scooter: { every: [7, 13], first: [1, 3], event: 'scooter', sweep: true },
-  crowd: {},
-  busker: { cue: { type: 'note', every: [0.3, 0.7], data: () => ({ n: Math.floor(Math.random() * 7) }) } },
-  sonar: { every: [5, 8], first: [0.4, 1.2], event: 'ping', pan: [0, 0] },
-  hull: { every: [9, 16], first: [1.5, 3.5], event: 'groan', pan: [-0.3, 0.3] },
-  whale: { every: [15, 25], first: [1, 3], event: 'whale', pan: [-0.6, 0.6] },
-  bubbles: { every: [2, 5], first: [0.2, 1], event: 'bubbles', pan: [-0.6, 0.6], data: () => ({ count: 8 + Math.floor(Math.random() * 8) }) },
-  current: {},
-  ghost: { every: [9, 16], first: [1.5, 4], event: 'ghost', pan: [-0.5, -0.3] },
+  wind: { cue: { type: 'gust', every: [2, 5], data: () => ({ strength: 0.6 + Math.random() * 0.35 }) }, place: [-2, 0, 0.1] },
+  train: { every: [22, 34], first: [2, 4], event: 'train', pan: [0, 0], place: [-3, 7000, 0.25] },
+  windmill: { every: [6, 11], first: [0.5, 1.5], event: 'creak', pan: [0.2, 0.5], place: [-16, 2500, 0.35] },
+  telegraph: { every: [7, 12], first: [0.8, 2], event: 'tap', pan: [0.4, 0.6], place: [-9, 0, 0.05] },
+  coyote: { every: [14, 24], first: [2, 4], event: 'howl', pan: [-0.7, 0.7], place: [0, 3000, 0.5] },
+  cicadas: { place: [-6, 8000, 0] },
+  crickets: { place: [-6, 0, 0.1] },
+  campfire: { cue: { type: 'pop', every: [0.8, 2.5] }, place: [3, 0, 0] },
+  creek: { cue: { type: 'lap', every: [1.6, 2.6] }, place: [-12, 2000, 0.25] },
+  owl: { every: [10, 18], first: [1.5, 3], event: 'hoot', pan: [-0.6, -0.4], place: [-4, 3500, 0.5] },
+  guitar: { cue: { type: 'strum', every: [1.5, 2.6] }, place: [-3, 6000, 0.25] },
+  frogs: { every: [3, 7], first: [0.5, 2], event: 'ribbit', pan: [-0.8, 0.8], cue: { type: 'ribbit', every: [2.5, 6] }, place: [-9, 5000, 0.3] },
+  waves: { every: [5.5, 9], first: [1, 3], event: 'wave', pan: [-0.5, 0.5], cue: { type: 'wave', every: [5.5, 8.5], data: () => ({ size: 0.6 + Math.random() * 0.4 }) }, place: [-1, 0, 0.1] },
+  gulls: { every: [3.5, 9], first: [0.5, 2], event: 'gull', pan: [-0.8, 0.8], place: [-10, 6500, 0.3] },
+  foghorn: { every: [22, 34], first: [2, 4], event: 'horn', pan: [0.3, 0.5], place: [-4, 1500, 0.55] },
+  buoy: { every: [4, 9], first: [0.5, 2], event: 'bell', pan: [-0.4, -0.2], place: [-2, 4000, 0.45] },
+  rigging: { every: [1.5, 4.5], first: [0.3, 1.5], event: 'clink', pan: [-0.8, 0.8], cue: { type: 'clink', every: [1.5, 4] }, place: [-8, 6000, 0.25] },
+  pier: { every: [4, 9], first: [1, 3], event: 'creak', pan: [-0.5, 0.5], place: [-6, 0, 0.1] },
+  rain: { place: [0, 0, 0] },
+  neon: { every: [2.5, 7], first: [0.5, 2], event: 'flicker', pan: [-0.3, 0.3], place: [-10, 6000, 0] },
+  wok: { every: [4, 9], first: [0.5, 2], event: 'sizzle', pan: [-0.6, 0.6], place: [-5, 7000, 0.15] },
+  scooter: { every: [7, 13], first: [1, 3], event: 'scooter', sweep: true, place: [-3, 0, 0.15] },
+  crowd: { place: [-6, 5000, 0.2] },
+  busker: { cue: { type: 'note', every: [0.3, 0.7], data: () => ({ n: Math.floor(Math.random() * 7) }) }, place: [-6, 4500, 0.35] },
+  sonar: { every: [5, 8], first: [0.4, 1.2], event: 'ping', pan: [0, 0], place: [0, 0, 0.35] },
+  hull: { every: [9, 16], first: [1.5, 3.5], event: 'groan', pan: [-0.3, 0.3], place: [1, 0, 0.1] },
+  whale: { every: [15, 25], first: [1, 3], event: 'whale', pan: [-0.6, 0.6], place: [0, 2500, 0.5] },
+  bubbles: { every: [2, 5], first: [0.2, 1], event: 'bubbles', pan: [-0.6, 0.6], data: () => ({ count: 8 + Math.floor(Math.random() * 8) }), place: [-8, 5000, 0.1] },
+  current: { place: [0, 0, 0] },
+  ghost: { every: [14, 26], first: [1.5, 4], event: 'ghost', pan: [-0.5, -0.3], place: [-13, 3000, 0.45] },
 };
 
 // Loudness targets: beds sit under everything, one-shots stand out a little.
@@ -75,6 +78,13 @@ export function makeSampleLayer(k, id, bufs) {
   const r = ([a, b]) => k.r(a, b);
   const tickers = [];
 
+  // Everything goes through the element's placement: level, then distance.
+  const [db = 0, cut = 0, wet = 0] = plan.place || [];
+  const out = k.gain(10 ** (db / 20));
+  const far = cut ? k.filter('lowpass', cut, 0.5) : k.gain(1);
+  out.connect(far); far.connect(k.out);
+  if (wet && k.verb) far.connect(k.gain(wet, k.verb));
+
   // Beds: overlapping passes through the file from random points, crossfaded,
   // so even a short or unseamed recording loops without a click or a pattern.
   if (bufs.bed && bufs.bed.length) {
@@ -93,7 +103,7 @@ export function makeSampleLayer(k, id, bufs) {
         const src = k.ctx.createBufferSource();
         src.buffer = buf;
         const g = k.gain(0);
-        src.connect(g); g.connect(k.out);
+        src.connect(g); g.connect(out);
         const level = matchGain(buf, 'bed');
         const fade = Math.min(xf, len / 3);
         const fadeIn = first ? 0.3 : fade; // the layer itself fades in; no need to wait on the first pass
@@ -120,7 +130,7 @@ export function makeSampleLayer(k, id, bufs) {
         src.buffer = buf;
         src.playbackRate.value = k.r(0.97, 1.03);
         const g = k.gain(matchGain(buf, 'shot') * k.r(0.8, 1));
-        const pan = k.pan(0, k.out);
+        const pan = k.pan(0, out);
         let dir = 1;
         if (plan.sweep) {
           dir = k.chance(0.5) ? 1 : -1;
