@@ -575,7 +575,7 @@ const docks = {
   event(st, e, w, h) {
     if (e.type === 'gull' && st.gulls.length < 8) st.gulls.push(this.gull(w, h));
     if (e.type === 'bell') st.bell = 1;
-    if (e.type === 'horn') st.horn = e.data.dur;
+    if (e.type === 'horn') st.horn = st.hornLen = e.data.dur;
     if (e.type === 'wave') { st.waves.push({ age: 0, size: e.data.size }); for (let i = 0; i < 14; i++) st.foam.add({ x: Math.random() * this.deck.x1, y: h * 0.86, vx: (Math.random() - 0.4) * 40, vy: -60 - Math.random() * 80, age: 0, life: 1.2 }); }
     if (e.type === 'clink') st.clink = 0.6;
     if (e.type === 'creak') st.creak = 1;
@@ -610,7 +610,7 @@ const docks = {
       g.fillRect(sx - 40, sy - 8, 80, 8); g.fillRect(sx - 18, sy - 16, 30, 8); g.fillRect(sx + 2, sy - 26, 6, 10);
       if (st.horn > 0) {
         glow(g, sx + 5, sy - 18, 30, 'rgba(255,255,220,0.7)');
-        const k = 1 - st.horn / 3.6;
+        const k = 1 - st.horn / st.hornLen;
         g.strokeStyle = `rgba(255,255,255,${0.4 * (1 - k)})`; g.lineWidth = 1.5;
         g.beginPath(); g.arc(sx + 5, sy - 26, 10 + k * 70, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
         g.fillStyle = `rgba(255,255,255,${0.5 * (1 - k)})`; g.beginPath(); g.arc(sx + 5, sy - 30 - k * 20, 4 + k * 10, 0, TAU); g.fill();

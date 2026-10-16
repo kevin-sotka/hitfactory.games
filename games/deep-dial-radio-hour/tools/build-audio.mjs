@@ -65,12 +65,13 @@ export function unzip(buf, dest) {
 }
 
 // ---------- convert ----------
-function ffmpeg(input, output, kind) {
+function ffmpeg(input, output, kind, gainDb = 0) {
   const trim = 'silenceremove=start_periods=1:start_threshold=-48dB:start_silence=0.02,areverse,silenceremove=start_periods=1:start_threshold=-48dB:start_silence=0.06,areverse';
+  const lift = gainDb ? `,volume=${gainDb.toFixed(1)}dB,alimiter=limit=0.89:level=false` : '';
   const plans = {
-    // Booth takes are already levelled and rendered voices are consistent, so only trim:
-    // loudness normalising a one-word clip does more harm than good.
-    voice: ['-af', trim, '-ac', '1', '-ar', '44100', '-b:a', '80k'],
+    // Booth takes are already levelled, so only trim: loudness normalising a one-word
+    // clip does more harm than good. Rendered voices get one gain per narrator (lift).
+    voice: ['-af', trim + lift, '-ac', '1', '-ar', '44100', '-b:a', '80k'],
     bed: ['-t', '75', '-ac', '2', '-ar', '44100', '-b:a', '112k'],
     shot: ['-ac', '2', '-ar', '44100', '-b:a', '112k'],
     music: ['-ac', '2', '-ar', '44100', '-b:a', '160k'],
@@ -100,6 +101,22 @@ export function pickSources(files, srcDir) {
   return [...byTarget.values()];
 }
 
+// Library voices come out at very different levels (one narrator sat 16 dB under the
+// others), so each narrator's rendered clips share one gain that puts their median peak
+// at VOICE_PEAK_DB. One gain per narrator keeps the natural rise and fall between pieces.
+const VOICE_PEAK_DB = -4;
+const peakDb = f => Number((spawnSync('ffmpeg', ['-i', f, '-af', 'volumedetect', '-f', 'null', '-']).stderr.toString().match(/max_volume: (-?[\d.]+) dB/) || [])[1] ?? NaN);
+export const medianOf = xs => { const a = xs.filter(Number.isFinite).sort((x, y) => x - y); return a.length ? a[a.length >> 1] : NaN; };
+const narratorGains = new Map();
+function narratorGain(narrator) {
+  if (!narratorGains.has(narrator)) {
+    const m = medianOf(walk(path.join(SRC, 'voice-ai', narrator)).filter(f => f.endsWith('.mp3')).map(peakDb));
+    narratorGains.set(narrator, Number.isFinite(m) ? Math.max(0, VOICE_PEAK_DB - m) : 0);
+    console.log(`  ${narrator}: rendered voice +${narratorGains.get(narrator).toFixed(1)} dB`);
+  }
+  return narratorGains.get(narrator);
+}
+
 function convertAll() {
   let done = 0, skipped = 0;
   for (const { file: f, rel: r, out } of pickSources(walk(SRC), SRC)) {
@@ -108,7 +125,7 @@ function convertAll() {
     const target = path.join(OUT, out + (hasFfmpeg ? '.mp3' : ext));
     if (fs.existsSync(target) && fs.statSync(target).mtimeMs >= fs.statSync(f).mtimeMs) { skipped++; continue; }
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    if (hasFfmpeg) ffmpeg(f, target, kind);
+    if (hasFfmpeg) ffmpeg(f, target, kind, r.startsWith('voice-ai/') ? narratorGain(r.split('/')[1]) : 0);
     else if (PLAYABLE.has(ext)) fs.copyFileSync(f, target);
     else { console.warn(`  skipped ${r}: needs ffmpeg to convert ${ext}`); continue; }
     done++;

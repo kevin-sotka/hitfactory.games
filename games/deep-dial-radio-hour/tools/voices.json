@@ -1,0 +1,32 @@
+{
+ "prairie": {
+  "voice_id": "YXpFCvM1S3JbWEJhoskW",
+  "name": "Wyatt- Wise Rustic Cowboy",
+  "from": "library",
+  "preview_url": "https://storage.googleapis.com/eleven-public-prod/custom/voices/YXpFCvM1S3JbWEJhoskW/CLHVUhxcz93hum03aUwc.mp3"
+ },
+ "campground": {
+  "voice_id": "5GZaeOOG7yqLdoTRsaa6",
+  "name": "Sally - Kind Australian ",
+  "from": "library",
+  "preview_url": "https://api.us.elevenlabs.io/v1/voices/5GZaeOOG7yqLdoTRsaa6/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ1c2VyX2lkIjoiVnEwVEFGbDNlNFZyWnZjVGE4Z0g4Z3pkWVRDMyIsImZpbGVuYW1lIjoiYjIxYjQ0NjMtMmI2NC00OThmLTk5Y2QtMWMwMTcwYmFmYmQzLm1wMyIsInRpbWVzdGFtcCI6MTc5MjExOTYwMDAwMDAwMH0%3D"
+ },
+ "docks": {
+  "voice_id": "nTMUXLFSfbWmdKKy7nDC",
+  "name": "Alder - Warm, Raspy and Comforting",
+  "from": "library",
+  "preview_url": "https://storage.googleapis.com/eleven-public-prod/database/user/qr1Waa0SQiZorbgXHZxbIe8aUxg1/voices/nTMUXLFSfbWmdKKy7nDC/I0FAhCFwCQr54oxJLr1r.mp3"
+ },
+ "market": {
+  "voice_id": "Yex236tJMytMYoUWKVSJ",
+  "name": "Micky London - Authentic British Narrator",
+  "from": "library",
+  "preview_url": "https://api.us.elevenlabs.io/v1/voices/Yex236tJMytMYoUWKVSJ/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiJkOTBhMzYxNDM3YTU0M2U5ODA2ZGExNTFlNjg5NTczYiIsImZpbGVuYW1lIjoiMnNQRUU0TGV2ZVZ6b0RKRkNXbWkubXAzIiwidGltZXN0YW1wIjoxNzkyMTE5NjAwMDAwMDAwfQ%3D%3D"
+ },
+ "trench": {
+  "voice_id": "TVmbglAk3F1GkiCoOq47",
+  "name": "Isla Skye - Scottish, Soft, and Warm",
+  "from": "library",
+  "preview_url": "https://storage.googleapis.com/eleven-public-prod/database/user/6cDV1WImonUwQcaI0lVymsrZGQ52/voices/TVmbglAk3F1GkiCoOq47/32s6eoebELgG3CvTnSUI.mp3"
+ }
+}
