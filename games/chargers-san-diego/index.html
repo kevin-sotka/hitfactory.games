@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Where in the World is Chargers, San Diego?</title>
+<meta name="description" content="A detective agency tracks a crew of NFL players across a real 3D globe. Drop a pin on the college, stadium, or city each clue points to before the clock runs out.">
+<meta name="theme-color" content="#05101a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%230b1c2c' stroke='%2316d5c7' stroke-width='3'/%3E%3Cpath d='M12 32a20 20 0 0 1 40 0M8 32a24 24 0 0 1 48 0' fill='none' stroke='%2339ff14' stroke-width='2' opacity='.6'/%3E%3Ccircle cx='32' cy='24' r='6' fill='%23ff3864'/%3E%3Cpath d='M32 30v10l6 6' stroke='%23ffb627' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=Bungee&family=Special+Elite&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --crt:#0b1c2c;--amber:#ffb627;--amber2:#ff8a00;--green:#39ff14;--red:#ff3864;
+    --teal:#16d5c7;--paper:#e8dcc0;--ink:#1a1208;--detective:#3a2d1a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Space Grotesk',sans-serif;background:#05101a;color:#eaf6ff;min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;padding:22px 14px;position:relative;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;z-index:0;
+    background:radial-gradient(circle at 50% -10%,rgba(22,213,199,.18),transparent 45%),
+    radial-gradient(circle at 50% 120%,rgba(255,138,0,.16),transparent 50%),linear-gradient(180deg,#05101a,#0a0414)}
+  body::after{content:"";position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.10;
+    background:repeating-linear-gradient(0deg,#000 0,#000 1px,transparent 2px,transparent 4px)}
+  .back{position:fixed;top:14px;left:14px;z-index:40;color:var(--amber);text-decoration:none;font-family:'Bungee',sans-serif;font-size:.64rem;letter-spacing:.1em;
+    background:rgba(0,0,0,.45);border:1px solid rgba(255,182,39,.5);border-radius:999px;padding:8px 14px;backdrop-filter:blur(8px)}
+
+  .game{position:relative;z-index:2;width:920px;max-width:100%}
+  .titlebar{text-align:center;margin-bottom:14px}
+  .titlebar .org{font-family:'Bungee',sans-serif;font-size:.62rem;letter-spacing:.28em;color:var(--teal);text-transform:uppercase}
+  .titlebar h1{font-family:'Archivo Black',sans-serif;font-size:clamp(1.5rem,4.2vw,2.5rem);line-height:.95;text-transform:uppercase;margin:6px 0 2px;
+    background:linear-gradient(92deg,var(--amber),var(--red) 60%,var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 2px 16px rgba(255,182,39,.4))}
+  .titlebar .by{font-family:'Special Elite',cursive;font-size:.84rem;color:var(--paper);opacity:.85}
+
+  .hud{display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,.4);border:1px solid var(--teal);border-radius:999px;
+    padding:9px 16px;margin-bottom:14px;font-family:'Bungee',sans-serif;font-size:.58rem;letter-spacing:.06em;gap:8px;flex-wrap:wrap}
+  .hud .seg{display:flex;align-items:center;gap:7px}
+  .hud .v{color:var(--amber);font-size:.86rem}
+  .hud .case-n{color:var(--teal)}
+  .hud .clockseg{color:#fff}
+  .hud .clockbar{width:90px;height:8px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+  .hud .clockbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--green),var(--amber));transition:width .25s linear,background .25s}
+  .hud .clockbar.low i{background:linear-gradient(90deg,var(--amber2),var(--red))}
+
+  .console{display:grid;grid-template-columns:1.12fr .88fr;gap:16px}
+  @media(max-width:780px){.console{grid-template-columns:1fr}}
+
+  .globewrap{background:linear-gradient(160deg,#0d2235,#081726);border:2px solid var(--teal);border-radius:18px;padding:14px;position:relative;
+    box-shadow:0 0 40px rgba(22,213,199,.18),inset 0 0 40px rgba(0,0,0,.5)}
+  .globewrap .scr{font-family:'Bungee',sans-serif;font-size:.54rem;letter-spacing:.12em;color:var(--teal);text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between}
+  #globe{display:block;width:100%;height:auto;aspect-ratio:1/1;cursor:grab;touch-action:none}
+  #globe.dropping{cursor:crosshair}
+  #globe:active{cursor:grabbing}
+  .ctrls{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
+  .ctrls button{font-family:'Bungee',sans-serif;font-size:.56rem;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--teal);
+    background:rgba(22,213,199,.1);color:var(--teal);border-radius:9px;padding:8px 12px;cursor:pointer}
+  .ctrls button:hover{background:rgba(22,213,199,.25)}
+  .ctrls .spacer{flex:1}
+  .ctrls .lockbtn{background:var(--amber);color:var(--ink);border-color:var(--amber);font-size:.62rem}
+  .ctrls .lockbtn:disabled{opacity:.4;cursor:not-allowed}
+  .hint{margin-top:8px;font-size:.74rem;color:var(--teal);text-align:center;font-family:'Special Elite',cursive;min-height:18px}
+
+  /* dwindle hint (Q1) */
+  .dwindle{margin:8px 0 2px;padding:9px 11px;border-radius:10px;background:rgba(255,182,39,.16);border:1px dashed var(--amber2);
+    font-family:'Special Elite',cursive;font-size:.8rem;color:#6b4a00;display:none;animation:slidein .4s ease;line-height:1.35}
+  .dwindle.on{display:block}
+  .dwindle b{color:var(--amber2);font-family:'Bungee',sans-serif;font-size:.54rem;letter-spacing:.08em;display:block;margin-bottom:3px;text-transform:uppercase}
+
+  /* crew picker overlay */
+  .picker{position:fixed;inset:0;z-index:60;background:rgba(4,8,16,.92);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;
+    justify-content:flex-start;padding:40px 16px;overflow-y:auto}
+  .picker.off{display:none}
+  .picker h2{font-family:'Archivo Black',sans-serif;font-size:clamp(1.2rem,3.6vw,1.9rem);text-transform:uppercase;text-align:center;margin-bottom:4px;
+    background:linear-gradient(92deg,var(--amber),var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .picker .sub{font-family:'Special Elite',cursive;color:var(--paper);opacity:.85;margin-bottom:18px;text-align:center}
+  .crewgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;width:920px;max-width:100%}
+  .crewcard{background:linear-gradient(160deg,#0d2235,#081726);border:1px solid var(--teal);border-radius:14px;padding:14px;cursor:pointer;
+    transition:transform .12s,box-shadow .12s;text-align:left}
+  .crewcard:hover{transform:translateY(-3px);box-shadow:0 10px 30px rgba(22,213,199,.25)}
+  .crewcard .em{font-size:1.6rem}
+  .crewcard .nm{font-family:'Bungee',sans-serif;font-size:.74rem;letter-spacing:.02em;color:var(--amber);margin:6px 0 3px;line-height:1.1}
+  .crewcard .th{font-family:'Special Elite',cursive;font-size:.72rem;color:var(--teal);margin-bottom:5px}
+  .crewcard .fl{font-size:.74rem;color:#c9dbe8;line-height:1.35}
+  .picker .rand{margin-top:18px;border:0;border-radius:12px;padding:13px 26px;font-family:'Bungee',sans-serif;font-size:.72rem;letter-spacing:.07em;
+    text-transform:uppercase;background:var(--amber);color:var(--ink);cursor:pointer}
+
+  .dossier{background:var(--paper);color:var(--ink);border-radius:14px;overflow:hidden;position:relative;
+    border:2px solid var(--detective);box-shadow:0 18px 50px rgba(0,0,0,.5);display:flex;flex-direction:column}
+  .dossier .stamp{position:absolute;top:12px;right:-32px;background:var(--red);color:#fff;font-family:'Bungee',sans-serif;font-size:.56rem;letter-spacing:.16em;
+    padding:5px 40px;transform:rotate(38deg);text-transform:uppercase;box-shadow:0 2px 8px rgba(0,0,0,.4);z-index:3}
+  .dossier .dhead{background:var(--detective);color:var(--paper);padding:12px 16px}
+  .dossier .dhead .case{font-family:'Special Elite',cursive;font-size:.68rem;letter-spacing:.1em;opacity:.8}
+  .dossier .dhead .who{font-family:'Bungee',sans-serif;font-size:.9rem;letter-spacing:.03em;margin-top:3px}
+  .detective{display:flex;align-items:center;gap:11px;padding:12px 16px 4px}
+  .detective .face{font-size:2.2rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+  .detective .speech{flex:1;background:#fff;border:2px solid var(--ink);border-radius:11px;padding:9px 11px;font-family:'Special Elite',cursive;font-size:.8rem;position:relative;line-height:1.35}
+  .detective .speech::before{content:"";position:absolute;left:-9px;top:13px;border:7px solid transparent;border-right-color:var(--ink)}
+
+  .clues{padding:6px 16px 10px;flex:1}
+  .clue-lab{font-family:'Bungee',sans-serif;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin:6px 0 7px;border-bottom:2px solid var(--ink);padding-bottom:4px;display:flex;justify-content:space-between}
+  .clue-lab .thread{color:var(--detective);opacity:.75}
+  .clue{display:flex;gap:8px;align-items:flex-start;margin-bottom:7px;font-size:.84rem;line-height:1.38;animation:slidein .4s ease}
+  @keyframes slidein{from{opacity:0;transform:translateX(10px)}}
+  .clue .pin{color:var(--amber2);font-size:.95rem;flex-shrink:0}
+
+  .trail{padding:4px 16px 8px}
+  .trail .tl{font-family:'Bungee',sans-serif;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--detective);opacity:.7;margin-bottom:5px}
+  .trail .stops{display:flex;gap:5px;flex-wrap:wrap}
+  .trail .stop{font-family:'Special Elite',cursive;font-size:.68rem;background:#fff;border:1px solid var(--detective);border-radius:6px;padding:3px 7px}
+  .trail .stop.hit{background:#cde7c0}.trail .stop.miss{background:#f3cdd4}
+  .trail .stop.pending{opacity:.4}
+
+  .answer-area{padding:10px 16px 16px;border-top:2px dashed var(--detective)}
+  .qprompt{font-family:'Oswald',sans-serif;font-weight:700;font-size:.98rem;text-transform:uppercase;letter-spacing:.01em;margin-bottom:6px}
+  .feedback{min-height:20px;font-family:'Special Elite',cursive;font-size:.82rem;margin-bottom:7px;line-height:1.3}
+  .feedback.good{color:#0a7a00}.feedback.bad{color:#b3001b}.feedback.mid{color:#9a6b00}
+  .nextbtn{width:100%;border:0;border-radius:10px;padding:12px;font-family:'Bungee',sans-serif;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;
+    background:var(--detective);color:var(--paper);cursor:pointer;display:none}
+  .nextbtn:hover{background:#54421f}
+
+  .win{display:none;text-align:center;background:linear-gradient(160deg,#0d2235,#081726);border:2px solid var(--amber);border-radius:18px;padding:30px 22px;
+    box-shadow:0 0 50px rgba(255,182,39,.3)}
+  .win.on{display:block;animation:fade .5s ease}
+  @keyframes fade{from{opacity:0;transform:scale(.96)}}
+  .win .badge{font-size:3.2rem}
+  .win h2{font-family:'Archivo Black',sans-serif;font-size:1.7rem;text-transform:uppercase;margin:8px 0;
+    background:linear-gradient(90deg,var(--amber),var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .win .rank{font-family:'Bungee',sans-serif;font-size:.9rem;color:var(--amber);letter-spacing:.06em;margin-bottom:8px}
+  .win p{color:var(--paper);font-family:'Special Elite',cursive;margin-bottom:18px;line-height:1.45}
+  .win button{border:0;border-radius:10px;padding:12px 26px;font-family:'Bungee',sans-serif;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;background:var(--amber);color:var(--ink);cursor:pointer}
+
+  .mb{position:relative;z-index:2;margin-top:20px;font-family:'Bungee',sans-serif;font-size:.64rem;letter-spacing:.12em;color:#9fb6c8;text-transform:uppercase;text-align:center}
+  .mb a{color:var(--amber);text-decoration:none}
+  .credit{position:relative;z-index:2;margin-top:6px;font-family:'Special Elite',cursive;font-size:.72rem;color:#7f97a8;text-align:center}
+</style>
+</head>
+<body>
+<a class="back" href="https://hitfactory.games/">← Hit Factory</a>
+
+<div class="game" id="game">
+  <div class="titlebar">
+    <div class="org">The Gridiron Gazette · ACME Pro Football Detective Agency</div>
+    <h1>Where in the World is<br>Chargers, San Diego?</h1>
+    <div class="by">An escalating tap-the-globe gridiron chase</div>
+  </div>
+
+  <div class="hud" id="hud">
+    <div class="seg case-n">LEAD <span class="v" id="qNum">1</span>/5</div>
+    <div class="seg">SCORE <span class="v" id="score">0</span></div>
+    <div class="seg clockseg">⏱ <div class="clockbar" id="clockbar"><i id="clockfill"></i></div></div>
+    <div class="seg" style="color:var(--red)">WARRANTS <span class="v" id="warrants">0</span></div>
+  </div>
+
+  <div class="console" id="console">
+    <div class="globewrap">
+      <div class="scr"><span>◉ ACME TRACKING GLOBE</span><span id="tgt">SPIN · ZOOM · DROP PIN</span></div>
+      <svg id="globe" viewBox="0 0 440 440" width="440" height="440" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="ctrls">
+        <button onclick="zoomBy(1.4)">＋ Zoom</button>
+        <button onclick="zoomBy(0.72)">－ Zoom</button>
+        <button onclick="spinHome()">⟳ Recenter</button>
+        <span class="spacer"></span>
+        <button class="lockbtn" id="lockBtn" disabled onclick="lockGuess()">🔒 Lock pin</button>
+      </div>
+      <div class="hint" id="hint">Drag to spin the globe. Click anywhere to drop your pin.</div>
+    </div>
+
+    <div class="dossier">
+      <div class="stamp" id="stamp">On the Case</div>
+      <div class="dhead">
+        <div class="case">CASE FILE · GRIDIRON DIV.</div>
+        <div class="who" id="suspect">CHASE: ???</div>
+      </div>
+      <div class="detective">
+        <div class="face">🕵️</div>
+        <div class="speech" id="speech">Gumshoe, four henchmen, then the ringleader. Each one's hiding at a spot on the globe. Pin it, lock it, and the trail will point us to the boss.</div>
+      </div>
+      <div class="clues">
+        <div class="clue-lab"><span>🔎 Clues on file</span><span class="thread" id="threadTag"></span></div>
+        <div id="clueList"></div>
+        <div class="dwindle" id="dwindle"><b>🔦 Tip from the field</b><span id="dwindleText"></span></div>
+      </div>
+      <div class="trail">
+        <div class="tl">Travel trail</div>
+        <div class="stops" id="trail"></div>
+      </div>
+      <div class="answer-area">
+        <div class="qprompt" id="prompt">...</div>
+        <div class="feedback" id="feedback"></div>
+        <button class="nextbtn" id="nextBtn">Next lead ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="win" id="winScreen">
+    <div class="badge" id="winBadge">🎖️</div>
+    <h2 id="winTitle">Case Closed!</h2>
+    <div class="rank" id="winRank"></div>
+    <p id="winMsg"></p>
+    <button onclick="restart()">New case ▶</button>
+  </div>
+</div>
+
+<div class="mb"><a href="https://meatbagmade.com" target="_blank" rel="noopener">◆ Meatbag Made</a></div>
+<div class="credit">graphics: WITWICS classic · by The Gridiron Gazette</div>
+
+<script>
+/* ============================================================
+   WHERE IN THE WORLD IS CHARGERS, SAN DIEGO
+   Real D3 orthographic globe · pin-drop · great-circle scoring
+   Escalating chase: gentle clock + tightening tolerance Q1->Q5
+   ============================================================ */
+
+/* ============================================================
+   CREWS, ten 5-member chases. Clues identify by FOOTBALL IDENTITY
+   only (stats, accolades, draft slot, jersey #), never geo hints.
+   Q1 carries a `hint` (funny + nudging) that surfaces when the
+   clock crosses 50%, to ease newbies into the opening locale.
+   answer:[lat,lng].
+   ============================================================ */
+const CREWS = [
+
+/* 1, PATRIOTS DYNASTY (teammates → Brady), with London intl leg */
+{ title:"The Patriots Dynasty Heist", thread:"🔗 teammates", suspect:"THE BRADY CREW",
+  emoji:"🐐", flavor:"A 2000s–2010s dynasty. Four pass-catchers, one ringleader arm.",
+  intro:"Four hands that caught his bombs are scattered across the map. Track them down, the trail leads to the arm that threw the passes.",
+  questions:[
+    { who:"Julian Edelman", q:"Q1 · Find the COLLEGE of the slot man who caught the spark in the 28–3 comeback.",
+      clue:["A Super Bowl LIII MVP slot receiver who started his college career taking snaps as a quarterback.","His 141 receiving yards keyed the greatest comeback in Super Bowl history.","In college he threw 30 touchdown passes in a single season, as the starting QB."],
+      hint:"It's not in OLD York! Think a small-state college with golden flashes of speed.",
+      answer:[41.149,-81.342], answerName:"Kent State, Ohio",
+      speech:"First henchman, gumshoe. Read who he is, then find his old campus." },
+    { who:"Patriots in London", q:"Q2 · Jump the ocean. Pin the international stadium where this crew's franchise played a 2009 regular-season game.",
+      clue:["The dynasty hauled its road show overseas, to the home of soccer's most famous stadium.","The franchise beat the Buccaneers there 35–7 in late October 2009, an NFL International Series game.","It's the cathedral of English football, rebuilt with a giant white arch over the pitch."],
+      answer:[51.556,-0.279], answerName:"Wembley Stadium, London",
+      speech:"Now the trail jumps the ocean. Same crew, different continent." },
+    { who:"Randy Moss", q:"Q3 · Find the COLLEGE of the deep threat who set the single-season TD-catch record in this crew's 16–0 year.",
+      clue:["\"Straight cash, homie.\" One of the greatest deep threats the game has ever seen.","He caught 23 touchdowns in 2007, still the single-season record.","His 15,292 career receiving yards rank top-five all time."],
+      answer:[37.788,-80.700], answerName:"Marshall University, West Virginia",
+      speech:"Back to the States. Smaller target, zoom in tight." },
+    { who:"Wes Welker", q:"Q4 · Find the COLLEGE of the undrafted slot machine who posted multiple 110-catch seasons for the crew.",
+      clue:["Undrafted out of college, he led the entire NFL in receptions three times.","He stacked five separate 100-catch seasons, almost unheard of for his size.","He wore No. 83 and lived in the slot."],
+      answer:[33.584,-101.875], answerName:"Texas Tech, Lubbock, Texas",
+      speech:"Last henchman before the boss. The trail's tightening." },
+    { who:"Tom Brady", q:"Q5 · THE BOSS. Find the COLLEGE where the ringleader rode the bench before greatness.",
+      clue:["Pick 199 of the draft. Seven Super Bowl rings. The most decorated QB ever.","He sat behind Drew Henson on the depth chart at a storied football factory before he ever started.","He threw for over 89,000 career yards across 23 seasons."],
+      answer:[42.265,-83.749], answerName:"Michigan (Ann Arbor)",
+      speech:"This is it. Pin the boss's campus, and make it count.", boss:true }
+  ]},
+
+/* 2, GREATEST SHOW ON TURF (1999 Rams → Kurt Warner) */
+{ title:"The Greatest Show on Turf", thread:"🔗 teammates", suspect:"THE TURF SHOW CREW",
+  emoji:"🐏", flavor:"The 1999 Rams offense, the fastest unit of its era.",
+  intro:"The flashiest offense of its day, gone to ground. Run down the skill players, they lead to the bagboy who became MVP.",
+  questions:[
+    { who:"Marshall Faulk", q:"Q1 · Find the COLLEGE of the do-it-all back who was the engine of this offense.",
+      clue:["The matchup-nightmare back who was the engine of 'The Greatest Show on Turf', equally lethal running or catching.","He scored 2,000+ yards from scrimmage in a single season and was the 1994 Offensive Rookie of the Year.","Wore No. 28, an MVP and one of the few with 100+ rushing AND 30+ receiving touchdowns."],
+      hint:"Not the obvious Big-Ten guess, think a sunny western city's state school, by the border.",
+      answer:[32.775,-117.071], answerName:"San Diego State, California",
+      speech:"Start with the engine of the offense." },
+    { who:"Torry Holt", q:"Q2 · Find the COLLEGE of the crew's deep-ball wideout, half of the 'Twin Towers' receiving duo.",
+      clue:["A seven-time Pro Bowl receiver who topped 1,300 yards six straight seasons.","He led the entire NFL in receiving yards in 2003.","He finished his career with over 13,000 receiving yards."],
+      answer:[35.785,-78.682], answerName:"NC State, Raleigh, North Carolina",
+      speech:"Now the burner on the outside." },
+    { who:"Isaac Bruce", q:"Q3 · Find the COLLEGE of the wideout who caught the Super Bowl XXXIV–winning touchdown.",
+      clue:["He caught the 73-yard walk-off touchdown to win Super Bowl XXXIV.","A Hall of Famer with over 1,000 career receptions and 15,000 yards.","He spent 14 of his 16 seasons with this same franchise."],
+      answer:[36.073,-94.171], answerName:"Arkansas (Fayetteville)",
+      speech:"The man who caught the title. Smaller school, zoom in." },
+    { who:"Orlando Pace", q:"Q4 · Find the COLLEGE of the left tackle who protected the whole show, a No. 1 overall pick.",
+      clue:["The first overall pick of the 1997 NFL Draft, a Hall-of-Fame left tackle.","He popularized the term 'pancake block' in college.","Seven Pro Bowls protecting the MVP's blind side."],
+      answer:[40.001,-83.019], answerName:"Ohio State (Columbus)",
+      speech:"The blind-side protector. Last henchman." },
+    { who:"Kurt Warner", q:"Q5 · THE BOSS. Before the MVP trophies, where did the ringleader play COLLEGE?",
+      clue:["He went undrafted and stocked grocery-store shelves before becoming a two-time MVP.","He threw for 414 yards in a Super Bowl, still a record.","A Hall of Famer who started his pro path in the Arena Football League."],
+      answer:[42.512,-92.461], answerName:"Northern Iowa (Cedar Falls)",
+      speech:"The grocery bagger turned legend. Pin his college.", boss:true }
+  ]},
+
+/* 3, THE LEGION OF BOOM (2010s Seahawks → Russell Wilson) */
+{ title:"The Legion of Boom Bust", thread:"🔗 teammates", suspect:"THE BOOM CREW",
+  emoji:"🦅", flavor:"The 2013 Seahawks, the loudest secondary of the decade.",
+  intro:"The hardest-hitting secondary of its era has scattered. Chase the defenders, the trail ends at the little QB who led them.",
+  questions:[
+    { who:"Richard Sherman", q:"Q1 · Find the COLLEGE of the corner who tipped the NFC title-game pass, 'I'm the best corner in the game!'",
+      clue:["An All-Pro corner who led the NFL in interceptions in 2013.","He played receiver before switching to corner at a school known more for tech than football.","Famous for the tipped pass that sent his team to Super Bowl XLVIII."],
+      hint:"Not a football factory, this elite academic school is near a famous tree-lined campus in NorCal.",
+      answer:[37.428,-122.169], answerName:"Stanford, California",
+      speech:"The loudmouth corner first." },
+    { who:"Earl Thomas", q:"Q2 · Find the COLLEGE of the free safety who patrolled the deep middle.",
+      clue:["A ball-hawking free safety, first-team All-Pro three times.","Drafted 14th overall in 2010, a unanimous All-American in college.","He won a national title with the Longhorns' rival-slaying defense."],
+      answer:[30.286,-97.733], answerName:"Texas (Austin)",
+      speech:"The center-fielder of the defense." },
+    { who:"Kam Chancellor", q:"Q3 · Find the COLLEGE of the strong safety who hit like a linebacker.",
+      clue:["A bruising strong safety nicknamed 'Bam Bam.'","He played quarterback in high school before becoming an enforcer.","Four Pro Bowls delivering the boom in the box."],
+      answer:[36.886,-76.305], answerName:"Virginia Tech (Blacksburg)",
+      speech:"The enforcer. Tighten the pin." },
+    { who:"Marshawn Lynch", q:"Q4 · Find the COLLEGE of 'Beast Mode', the back who powered this same team.",
+      clue:["'Beast Mode', author of the most violent playoff run ever, the 'Beast Quake.'","He's here for the Skittles and the touchdowns.","In college he was a Golden Bears workhorse before going 12th overall in 2007."],
+      answer:[37.871,-122.259], answerName:"California (Berkeley)",
+      speech:"Beast Mode. Last one before the boss." },
+    { who:"Russell Wilson", q:"Q5 · THE BOSS. Find the COLLEGE where the ringleader QB finished his career, the school he transferred TO.",
+      clue:["A third-round QB who won a Super Bowl in his second season.","He transferred for his final college year and won a conference title there.","Listed at 5'11\", he made a career of throwing over the line anyway."],
+      answer:[44.008,-89.539], answerName:"Wisconsin (Madison)",
+      speech:"The little general. Pin his final campus.", boss:true }
+  ]},
+
+/* 4, THE 1983 QB DRAFT CLASS (same event → the draft itself, NYC) */
+{ title:"The Class of '83 Cold Case", thread:"🏅 same draft", suspect:"THE '83 QB CLASS",
+  emoji:"📜", flavor:"The legendary 1983 draft, six first-round quarterbacks.",
+  intro:"The greatest QB draft class ever has gone underground. Find where they played, the trail leads to the room where it all started.",
+  questions:[
+    { who:"John Elway", q:"Q1 · Find the COLLEGE of the No. 1 overall pick who forced a trade rather than play for the Colts.",
+      clue:["The first overall pick of 1983, who threatened to play baseball to force a trade.","He won back-to-back Super Bowls in his final two seasons, retiring on top.","A nine-time Pro Bowler who finished with over 51,000 passing yards."],
+      hint:"Not on the East Coast, this brainy school sits down on the San Francisco peninsula.",
+      answer:[37.428,-122.169], answerName:"Stanford, California",
+      speech:"Start with the top pick." },
+    { who:"Dan Marino", q:"Q2 · Find the COLLEGE of the strong-armed QB famously taken 27th, last of the six first-rounders.",
+      clue:["Taken 27th overall, the last QB off the board in the first round.","He threw for 5,084 yards in 1984, a record that stood for decades.","A Hall of Famer who never won a ring despite over 61,000 passing yards."],
+      answer:[40.444,-79.960], answerName:"Pittsburgh, Pennsylvania",
+      speech:"The cannon arm. A steel-town school." },
+    { who:"Jim Kelly", q:"Q3 · Find the COLLEGE of the QB who ran the K-Gun and reached four straight Super Bowls.",
+      clue:["He led his team to four consecutive Super Bowls, and lost all four.","Before the NFL he starred in the USFL's pass-happy circuit.","A Hall of Famer who ran the no-huddle 'K-Gun' offense."],
+      answer:[25.721,-80.279], answerName:"Miami (Florida)",
+      speech:"The K-Gun trigger man." },
+    { who:"Ken O'Brien", q:"Q4 · Find the COLLEGE of the QB the Jets took ahead of Marino, a surprise pick.",
+      clue:["The Jets drafted him one spot before Marino, to fans' confusion.","He twice led the NFL in passer rating in the mid-1980s.","A Division II prospect, he was the surprise QB of the first round."],
+      answer:[38.539,-121.749], answerName:"UC Davis, California",
+      speech:"The forgotten one. Last henchman." },
+    { who:"The 1983 NFL Draft room", q:"Q5 · THE BOSS. Pin the CITY where this legendary draft was actually held.",
+      clue:["This entire class was selected in one room over two April days in 1983.","The event took place at the Sheraton hotel in one famous American city.","The same city would later host the draft as a stadium spectacle, but in '83 it was a ballroom."],
+      answer:[40.758,-73.985], answerName:"New York City",
+      speech:"All six came from one room. Pin the city.", boss:true }
+  ]},
+
+/* 5, THE U: MIAMI PIPELINE (same school → the program) */
+{ title:"The U: Miami Pipeline", thread:"🎓 same school", suspect:"THE MIAMI PIPELINE",
+  emoji:"🙌", flavor:"The University of Miami's NFL factory, swagger included.",
+  intro:"Five pros, one factory. Chase them by where they made their NFL names, the trail leads back to the campus that built them all.",
+  questions:[
+    { who:"Ray Lewis", q:"Q1 · Find the NFL CITY where this Hall-of-Fame linebacker spent his entire career.",
+      clue:["A two-time Defensive Player of the Year who won two Super Bowls 12 years apart.","Famous for a pre-game squirrel dance and bone-crushing hits.","He played all 17 seasons for one franchise, and retired a champion."],
+      hint:"Not a southern city, his pro home is a Mid-Atlantic harbor town with a purple bird.",
+      answer:[39.278,-76.623], answerName:"Baltimore, Maryland (Ravens)",
+      speech:"Start with the linebacker's pro home." },
+    { who:"Michael Irvin", q:"Q2 · Find the NFL CITY where 'The Playmaker' won three Super Bowls.",
+      clue:["A brash Hall-of-Fame receiver nicknamed 'The Playmaker.'","Part of a famous 'Triplets' trio that won three titles in the 1990s.","Over 11,000 receiving yards in a star-and-helmet uniform."],
+      answer:[32.747,-97.093], answerName:"Dallas/Arlington, Texas (Cowboys)",
+      speech:"The Playmaker's pro city." },
+    { who:"Andre Johnson", q:"Q3 · Find the NFL CITY where this Hall-of-Fame receiver spent his prime as a franchise cornerstone.",
+      clue:["A seven-time Pro Bowl receiver who twice led the NFL in receiving yards.","He topped 14,000 career receiving yards, almost all in battle-red and steel-blue.","A first-round pick in 2003, he was the quiet superstar of an expansion franchise's early years."],
+      answer:[29.685,-95.411], answerName:"Houston, Texas (Texans)",
+      speech:"Down to the Gulf Coast, the receiver." },
+    { who:"Frank Gore", q:"Q4 · Find the NFL CITY where this iron-man back played most of his career.",
+      clue:["He quietly rushed for over 16,000 yards, top five all time.","A model of durability, he played 16 NFL seasons, third overall pick of the 2005 draft.","He spent his prime as the workhorse for a five-time-champion franchise that wears scarlet and gold."],
+      answer:[37.403,-121.970], answerName:"San Francisco/Santa Clara, California (49ers)",
+      speech:"The iron man. Last henchman before the campus." },
+    { who:"The University of Miami", q:"Q5 · THE BOSS. Pin the CAMPUS that produced this entire crew.",
+      clue:["One school produced all four of these stars, a true NFL factory.","Its teams of the 1980s–2000s were college football's most feared, and brashest.","Its nickname is simply 'The U', Hurricanes, swagger and all."],
+      answer:[25.717,-80.279], answerName:"Coral Gables, Florida (University of Miami)",
+      speech:"One school made them all. Pin the campus.", boss:true }
+  ]},
+
+/* 6, THE FROZEN TUNDRA (Packers legends → Lambeau, the place) */
+{ title:"The Frozen Tundra Files", thread:"🏟️ same place", suspect:"THE TUNDRA LEGENDS",
+  emoji:"🧀", flavor:"Green Bay greats across the eras, all roads lead home.",
+  intro:"Legends of one storied franchise are hiding across the map. Chase them by their roots, every trail leads back to one frozen field.",
+  questions:[
+    { who:"Aaron Rodgers", q:"Q1 · Find the COLLEGE of the QB who fell to 24th and made everyone pay.",
+      clue:["A back-to-back MVP who slid to the 24th pick and stewed about it for years.","Famous for the 'Hail Mary' and the championship-belt celebration.","He walked on after junior college and starred as a Golden Bear."],
+      hint:"Not the Big House, this golden-bear school sits across the bay from San Francisco.",
+      answer:[37.871,-122.259], answerName:"California (Berkeley)",
+      speech:"Start with the slid-down MVP." },
+    { who:"Reggie White", q:"Q2 · Find the COLLEGE of the 'Minister of Defense,' a pass-rushing titan.",
+      clue:["The 'Minister of Defense,' one of the greatest pass rushers ever.","He retired as the all-time sack leader at the time.","A Hall of Famer who starred for the Volunteers before turning pro."],
+      answer:[35.954,-83.929], answerName:"Tennessee (Knoxville)",
+      speech:"The Minister of Defense." },
+    { who:"Brett Favre", q:"Q3 · Find the small COLLEGE of the gunslinger QB who started 297 straight games.",
+      clue:["An iron-man gunslinger who started a record 297 consecutive games.","A three-time MVP famous for backyard-style improvisation.","Wore No. 4, threw 508 career touchdowns, and was a second-round pick in 1991."],
+      answer:[31.330,-89.335], answerName:"Southern Miss (Hattiesburg, Mississippi)",
+      speech:"The gunslinger. Smaller target, zoom in." },
+    { who:"Bart Starr", q:"Q4 · Find the COLLEGE of the QB who won the first two Super Bowls.",
+      clue:["MVP of the first two Super Bowls ever played.","He quarterbacked the famous 'Ice Bowl' winning drive.","A late-round pick out of a storied SEC program."],
+      answer:[33.214,-87.545], answerName:"Alabama (Tuscaloosa)",
+      speech:"The original champion. Last henchman." },
+    { who:"Lambeau Field", q:"Q5 · THE BOSS. Pin the FIELD where all these legends made their legend.",
+      clue:["Every one of these legends starred for the same cold-weather franchise, a community-owned team with 13 NFL titles, the most in the league.","Their home is the most storied stadium in the sport, the 'Frozen Tundra,' named for a coach with four straight titles and the championship trophy.","The 'Lambeau Leap' was born in this end zone; the fans are called cheeseheads."],
+      answer:[44.501,-88.062], answerName:"Lambeau Field, Green Bay, Wisconsin",
+      speech:"All roads lead to the tundra. Drop your pin.", boss:true }
+  ]},
+
+/* 7, THE MANNING BLOODLINE (family → Archie) */
+{ title:"The Manning Bloodline", thread:"🧬 family", suspect:"THE MANNING CLAN",
+  emoji:"🏈", flavor:"Football's first family, three generations of QBs.",
+  intro:"A football dynasty of fathers and sons. Chase the boys by their colleges, the trail leads back to the patriarch who started it all.",
+  questions:[
+    { who:"Peyton Manning", q:"Q1 · Find the COLLEGE of the elder brother, a five-time MVP.",
+      clue:["A five-time MVP and two-time Super Bowl champion who barked 'Omaha!' at the line of scrimmage.","He set the single-season touchdown record with 55 in 2013, wearing his trademark No. 18.","He famously stayed all four years at his college instead of turning pro early, the elder of a famous QB family."],
+      hint:"Not Ole Miss like the rest of the family, this one bleeds orange in the Smoky-mountain state.",
+      answer:[35.954,-83.929], answerName:"Tennessee (Knoxville)",
+      speech:"Start with the elder brother." },
+    { who:"Eli Manning", q:"Q2 · Find the COLLEGE of the younger brother who beat the undefeated Patriots.",
+      clue:["He has two Super Bowl MVPs, and beat an undefeated team to get the first.","The 'helmet catch' drive is his signature moment.","He followed his father to play for the Rebels, the family's college program."],
+      answer:[34.365,-89.538], answerName:"Ole Miss (Oxford, Mississippi)",
+      speech:"The little brother, two-time giant-killer." },
+    { who:"Cooper Manning", q:"Q3 · Find the COLLEGE/CITY of the eldest brother, whose playing career was cut short.",
+      clue:["The eldest Manning brother, a receiver whose career ended early due to a spinal condition.","He never played in the NFL but stayed in the family business as a TV host.","He grew up and went to high school in the same city where his dad became a beloved pro QB."],
+      answer:[29.951,-90.072], answerName:"New Orleans, Louisiana",
+      speech:"The brother who never made the pros." },
+    { who:"Peyton's pro city", q:"Q4 · Find the NFL CITY where the elder brother won his first Super Bowl and set the franchise standard.",
+      clue:["The elder brother spent his first 14 seasons making one franchise a perennial contender, the team that drafted him No. 1 overall in 1998.","He won Super Bowl XLI there as the league MVP, throwing to Marvin Harrison and Reggie Wayne.","His No. 18 hangs in the rafters of that team's dome, the horseshoe on every helmet."],
+      answer:[39.760,-86.164], answerName:"Indianapolis, Indiana (Colts)",
+      speech:"Spread out, the elder brother's pro home. Last stop before the patriarch." },
+    { who:"Archie Manning", q:"Q5 · THE BOSS. Pin the COLLEGE where the father became a Southern legend.",
+      clue:["Before the sons, the father, a star QB long before any of them.","He played for a perennial-losing pro team yet was adored by its city.","In college he was an SEC legend; they even named a speed for him."],
+      answer:[34.365,-89.538], answerName:"Ole Miss (Oxford, Mississippi)",
+      speech:"Before the sons, the father. Pin his college.", boss:true }
+  ]},
+
+/* 8, GLOBAL GRIDIRON (international host cities → next host) */
+{ title:"Global Gridiron", thread:"🌍 same event", suspect:"THE WORLD TOUR",
+  emoji:"🌐", flavor:"The NFL's international road show, pure geography, no roster needed.",
+  intro:"The league took its show worldwide. Chase the host cities across the globe, the trail circles back to where it all began overseas.",
+  questions:[
+    { who:"Estadio Azteca", q:"Q1 · Pin the CITY whose famous high-altitude stadium hosted the NFL's first regular-season game abroad (2005).",
+      clue:["In 2005 the NFL played its first-ever regular-season game outside the U.S. here.","The Cardinals beat the 49ers 31–14 in a massive high-altitude stadium.","The same iconic stadium hosted two World Cup finals."],
+      hint:"Head south of the border, this giant stadium sits in a high-altitude capital city.",
+      answer:[19.303,-99.150], answerName:"Mexico City, Mexico (Estadio Azteca)",
+      speech:"Start where it first went abroad." },
+    { who:"Allianz Arena", q:"Q2 · Pin the GERMAN CITY whose glowing arena hosted the NFL's first game in Germany (2022).",
+      clue:["The NFL's first German game was played here in 2022, Bucs over Seahawks.","Its stadium glows from the outside and is home to a famous soccer club.","It's the capital of Bavaria, famous for a giant autumn beer festival."],
+      answer:[48.219,11.625], answerName:"Munich, Germany (Allianz Arena)",
+      speech:"Across to Bavaria." },
+    { who:"Arena Corinthians", q:"Q3 · Pin the SOUTH AMERICAN CITY that hosted the NFL's first game on that continent (2024).",
+      clue:["The NFL played its first South American game here in 2024.","It's the largest city in Brazil and the southern hemisphere.","A Friday-night game that ended Brazil's wait for pro football."],
+      answer:[-23.545,-46.474], answerName:"São Paulo, Brazil (Arena Corinthians)",
+      speech:"Down to the southern hemisphere." },
+    { who:"Deutsche Bank Park", q:"Q4 · Pin the GERMAN FINANCIAL CITY that hosted an NFL game in 2023.",
+      clue:["This city hosted a 2023 NFL game and is Germany's banking capital.","Its skyline of towers earned it a nickname blending its name with 'Manhattan.'","A major European hub airport sits right beside the city."],
+      answer:[50.069,8.645], answerName:"Frankfurt, Germany (Deutsche Bank Park)",
+      speech:"Germany's money town. Last stop before the origin." },
+    { who:"Wembley Stadium", q:"Q5 · THE BOSS. Pin the STADIUM where the NFL's international era began in 2007.",
+      clue:["The NFL International Series kicked off here in 2007, Giants vs. Dolphins.","It's the home of English football, with a giant white arch over the pitch.","No venue has hosted more NFL international games."],
+      answer:[51.556,-0.279], answerName:"Wembley Stadium, London",
+      speech:"Back to where it all began overseas. Pin it.", boss:true }
+  ]},
+
+/* 9, THE DALLAS TRIPLETS (90s Cowboys → Jimmy Johnson), with Mexico City intl leg */
+{ title:"The Triplets Caper", thread:"🔗 teammates", suspect:"THE TRIPLETS",
+  emoji:"⭐", flavor:"The 1990s Cowboys, three stars, three titles.",
+  intro:"Three superstars and a dynasty that ruled the '90s. Chase them down, the trail leads to the architect who drafted them all.",
+  questions:[
+    { who:"Emmitt Smith", q:"Q1 · Find the COLLEGE of the back who became the NFL's all-time leading rusher.",
+      clue:["The NFL's all-time leading rusher with over 18,000 yards, wearing his iconic No. 22.","An MVP, four-time rushing champ, and three-time Super Bowl winner with the Triplets.","He won the 1990 Heisman runner-up vote starring for a 'Gators' college power before the pros."],
+      hint:"Not Miami, think the OTHER Florida powerhouse, the one that chomps.",
+      answer:[29.650,-82.349], answerName:"Florida (Gainesville)",
+      speech:"Start with the all-time rushing king." },
+    { who:"Troy Aikman", q:"Q2 · Find the COLLEGE where the No. 1-overall QB won a national title.",
+      clue:["The first overall pick of 1989 and a three-time Super Bowl champion.","A Hall-of-Fame QB who later became a lead TV broadcaster.","He transferred and won big at a school known for the 'Bruins.'"],
+      answer:[34.069,-118.445], answerName:"UCLA (Los Angeles)",
+      speech:"The triggerman. Out west." },
+    { who:"Cowboys in Mexico City", q:"Q3 · Jump the border. Pin the CITY where this crew's franchise played a famous 2022 international game.",
+      clue:["This crew's franchise is wildly popular south of the border.","They played a regular-season game in a giant high-altitude stadium there.","It's the same stadium that hosted the NFL's first-ever game abroad in 2005."],
+      answer:[19.303,-99.150], answerName:"Mexico City, Mexico",
+      speech:"The trail crosses the border, the team's second home." },
+    { who:"Michael Irvin", q:"Q4 · Find the COLLEGE of 'The Playmaker,' the third of the Triplets.",
+      clue:["A brash Hall-of-Fame receiver nicknamed 'The Playmaker.'","The receiving piece of the famous 'Triplets' trio.","He starred at the brashest college program of the 1980s."],
+      answer:[25.717,-80.279], answerName:"Miami (Coral Gables, Florida)",
+      speech:"The Playmaker. Last henchman." },
+    { who:"Jimmy Johnson", q:"Q5 · THE BOSS. Find the COLLEGE where the architect coached a national champion before the pros.",
+      clue:["The coach who drafted the Triplets and won two straight Super Bowls.","Before the pros he won a college national title with the brashest program of the era.","He later swung 'The Great Trade Robbery,' dealing a superstar back for the haul that built the dynasty."],
+      answer:[25.717,-80.279], answerName:"Miami (Coral Gables, Florida)",
+      speech:"The architect. Pin his college sideline.", boss:true }
+  ]},
+
+/* 10, THE PURPLE PEOPLE / MINNESOTA? -> swap for THE STEEL CURTAIN (70s Steelers → Chuck Noll) */
+{ title:"The Steel Curtain Heist", thread:"🔗 teammates", suspect:"THE STEEL CREW",
+  emoji:"⚙️", flavor:"The 1970s Steelers, four rings, one iron defense and offense.",
+  intro:"A 1970s dynasty with four rings has gone to ground. Chase the stars, the trail leads to the coach who forged the whole machine.",
+  questions:[
+    { who:"Terry Bradshaw", q:"Q1 · Find the small COLLEGE of the QB who won four Super Bowls in six years.",
+      clue:["A four-time Super Bowl champion and two-time Super Bowl MVP.","The first overall pick of the 1970 draft.","He wore No. 12 and threw the deep bombs to Lynn Swann and John Stallworth, a small-school prospect scouts underestimated."],
+      hint:"Not LSU, think the OTHER Louisiana school, the one with 'Tech' in the name up north.",
+      answer:[32.527,-92.648], answerName:"Louisiana Tech (Ruston)",
+      speech:"Start with the four-ring quarterback." },
+    { who:"Franco Harris", q:"Q2 · Find the COLLEGE of the back behind the 'Immaculate Reception.'",
+      clue:["Author of the 'Immaculate Reception,' the most famous play in NFL history.","A Hall-of-Fame back and Super Bowl IX MVP.","He played at a Big Ten powerhouse known as 'Linebacker U.'"],
+      answer:[40.798,-77.860], answerName:"Penn State (University Park)",
+      speech:"The Immaculate Reception man." },
+    { who:"Mean Joe Greene", q:"Q3 · Find the COLLEGE of the anchor of the 'Steel Curtain' defense.",
+      clue:["The cornerstone of the 'Steel Curtain,' a four-time champion.","Star of one of the most famous soda commercials ever ('Hey kid, catch.').","Wore No. 75, a two-time Defensive Player of the Year, his college retired that number and renamed its field for him."],
+      answer:[33.207,-97.152], answerName:"North Texas (Denton)",
+      speech:"The Steel Curtain anchor. Zoom in." },
+    { who:"Lynn Swann", q:"Q4 · Find the COLLEGE of the acrobatic receiver, Super Bowl X MVP.",
+      clue:["An acrobatic Hall-of-Fame receiver, MVP of Super Bowl X.","His balletic, leaping catches defined the highlight reel of the '70s.","He starred at a Pac-8 power known for its Trojans."],
+      answer:[34.022,-118.285], answerName:"USC (Los Angeles)",
+      speech:"The acrobat. Last henchman." },
+    { who:"Chuck Noll", q:"Q5 · THE BOSS. Pin the NFL CITY where this coach won a record four Super Bowls.",
+      clue:["The only coach to win four Super Bowls, the architect of the whole dynasty.","He built his machine in a gritty steel-making river city.","His teams played in a stadium where three rivers meet."],
+      answer:[40.447,-80.016], answerName:"Pittsburgh, Pennsylvania",
+      speech:"The architect of four rings. Pin his city.", boss:true }
+  ]}
+
+];
+
+/* active crew (set by picker; defaults to crew 0) */
+let SCENARIO = CREWS[0];
+
+/* ---- Escalating difficulty per question (gentle -> tense) ---- */
+/* tolerance = km that still earns near-full credit; time = seconds on clock */
+/* full = near-full credit; close = still "in the neighborhood" (the only band that reads "Close");
+   zero = points hit 0. Anything past `close` reads as a Cold trail even if it scored a few points. */
+const RAMP = [
+  { time:45, full:600, close:1200, zero:6000 },   // Q1 gentle
+  { time:42, full:500, close:1200, zero:7000 },   // Q2 international (London), continent jump
+  { time:34, full:320, close:800,  zero:5000 },
+  { time:28, full:220, close:600,  zero:4500 },
+  { time:24, full:140, close:450,  zero:4000 }    // Q5 tense
+];
+
+/* ---- Compact inline land outlines (no external TopoJSON dependency) ---- */
+/* Simplified GeoJSON MultiPolygon of the continents, enough to orient the player. */
+const LAND = {"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[-168,66],[-160,71],[-140,70],[-120,60],[-95,52],[-82,52],[-78,62],[-64,60],[-56,52],[-66,44],[-70,42],[-74,40],[-76,35],[-81,31],[-80,26],[-90,29],[-97,26],[-105,22],[-110,23],[-115,30],[-122,37],[-125,48],[-130,55],[-140,60],[-150,59],[-160,55],[-165,60],[-168,66]]]},"properties":{}},
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[-83,9],[-78,8],[-76,1],[-80,-4],[-75,-14],[-71,-18],[-70,-23],[-71,-30],[-73,-37],[-74,-44],[-72,-50],[-69,-55],[-65,-55],[-62,-50],[-58,-40],[-57,-34],[-48,-25],[-40,-22],[-35,-8],[-44,-2],[-50,0],[-52,4],[-60,8],[-67,11],[-75,11],[-78,9],[-83,9]]]},"properties":{}},
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[-10,36],[-6,36],[0,40],[3,43],[8,44],[12,46],[18,42],[16,38],[24,40],[28,37],[35,37],[36,34],[35,30],[32,31],[26,32],[20,33],[12,34],[5,37],[-2,35],[-7,33],[-10,36]]]},"properties":{}},
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[-10,36],[0,49],[2,51],[8,54],[10,58],[14,55],[12,48],[20,50],[28,48],[40,48],[55,52],[60,56],[75,55],[90,52],[100,50],[110,48],[120,50],[132,48],[140,52],[143,46],[135,40],[125,40],[122,30],[110,22],[100,14],[92,22],[88,22],[80,10],[77,8],[73,18],[70,22],[60,25],[58,37],[50,40],[45,42],[40,38],[36,34],[28,37],[24,40],[16,38],[18,42],[12,46],[8,44],[3,43],[0,40],[-6,36],[-10,36]]]},"properties":{}},
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[113,-22],[122,-18],[130,-12],[137,-12],[142,-11],[147,-18],[153,-25],[150,-37],[143,-39],[136,-35],[129,-32],[121,-34],[115,-34],[114,-28],[113,-22]]]},"properties":{}},
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[-55,83],[-30,83],[-18,76],[-22,70],[-40,60],[-50,64],[-58,68],[-70,76],[-60,82],[-55,83]]]},"properties":{}}]};
+
+/* ---- D3 globe setup ---- */
+const W=440,H=440;
+const svg=d3.select("#globe");
+let scale=205;
+const projection=d3.geoOrthographic().scale(scale).translate([W/2,H/2]).clipAngle(90).rotate([95,-38]);
+const path=d3.geoPath(projection);
+const graticule=d3.geoGraticule10();
+
+let gOcean,gGrat,gLand,gBorders,gMarks,gArc;
+let landFeatures=LAND.features;   // starts as simple fallback; upgraded to real countries
+let bordersMesh=null;             // country interior borders (real data only)
+function initSVG(){
+  svg.selectAll("*").remove();
+  const defs=svg.append("defs");
+  const grad=defs.append("radialGradient").attr("id","sea").attr("cx","35%").attr("cy","30%").attr("r","75%");
+  grad.append("stop").attr("offset","0%").attr("stop-color","#0e3550");
+  grad.append("stop").attr("offset","100%").attr("stop-color","#04111d");
+  // glow rim
+  svg.append("circle").attr("cx",W/2).attr("cy",H/2).attr("r",scale+6).attr("fill","none")
+     .attr("stroke","#16d5c7").attr("stroke-width",2.5).attr("opacity",.9).attr("id","rim")
+     .style("filter","drop-shadow(0 0 8px #16d5c7)");
+  gOcean=svg.append("path").datum({type:"Sphere"}).attr("fill","url(#sea)").attr("class","ocean");
+  gGrat=svg.append("path").datum(graticule).attr("fill","none").attr("stroke","#16d5c7").attr("stroke-width",.5).attr("opacity",.32);
+  gLand=svg.append("g");
+  gBorders=svg.append("path").attr("fill","none").attr("stroke","#39ff14").attr("stroke-width",.6).attr("stroke-opacity",.55);
+  gArc=svg.append("path").attr("fill","none").attr("stroke","#ffb627").attr("stroke-width",2).attr("stroke-dasharray","4 4").attr("opacity",0);
+  gMarks=svg.append("g");
+  drawLand();
+  redraw();
+}
+function drawLand(){
+  gLand.selectAll("path").data(landFeatures).join("path")
+     .attr("fill","rgba(57,255,20,.14)").attr("stroke","#39ff14").attr("stroke-width",.9).attr("stroke-opacity",.75);
+}
+function redraw(){
+  projection.scale(scale).clipAngle(90);
+  d3.select("#rim").attr("r",Math.min(scale+6,H/2-2));
+  gOcean.attr("d",path);
+  gGrat.attr("d",path);
+  gLand.selectAll("path").attr("d",path);
+  if(bordersMesh) gBorders.attr("d",path(bordersMesh));
+  drawMarks();
+}
+
+/* ---- Upgrade to real country borders (CDN) with graceful fallback ---- */
+async function loadWorld(){
+  if(typeof topojson==="undefined") return; // decoder missing -> keep fallback
+  const sources=[
+    "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json",
+    "https://unpkg.com/world-atlas@2/countries-110m.json"
+  ];
+  for(const url of sources){
+    try{
+      const topo=await d3.json(url);
+      if(!topo||!topo.objects||!topo.objects.countries) continue;
+      const fc=topojson.feature(topo,topo.objects.countries);
+      landFeatures=fc.features;
+      bordersMesh=topojson.mesh(topo,topo.objects.countries,(a,b)=>a!==b); // interior borders only
+      drawLand();
+      redraw();
+      $("tgt").textContent="LIVE GLOBE · DROP PIN";
+      return; // success
+    }catch(e){ /* try next source */ }
+  }
+  // all sources failed -> the simple inline outline stays; nothing to do
+}
+
+/* ---- markers (guess pin + reveal) ---- */
+let guess=null;          // [lng,lat]
+let truthShown=null;     // [lng,lat]
+function drawMarks(){
+  const data=[];
+  if(guess){const p=projection([guess[0],guess[1]]); if(p&&visible(guess)) data.push({p,type:"guess"});}
+  if(truthShown){const p=projection([truthShown[0],truthShown[1]]); if(p&&visible(truthShown)) data.push({p,type:"truth"});}
+  const sel=gMarks.selectAll("g.mk").data(data,(d,i)=>d.type);
+  sel.exit().remove();
+  const en=sel.enter().append("g").attr("class","mk");
+  en.append("circle");
+  en.append("text").attr("text-anchor","middle").attr("dy",-12).attr("font-family","Bungee, sans-serif").attr("font-size",9);
+  const all=en.merge(sel);
+  all.attr("transform",d=>`translate(${d.p[0]},${d.p[1]})`);
+  all.select("circle")
+     .attr("r",d=>d.type==="truth"?8:6)
+     .attr("fill",d=>d.type==="truth"?"#39ff14":"#ff3864")
+     .attr("stroke","#fff").attr("stroke-width",2)
+     .style("filter",d=>`drop-shadow(0 0 6px ${d.type==="truth"?"#39ff14":"#ff3864"})`);
+  all.select("text").attr("fill",d=>d.type==="truth"?"#39ff14":"#ff3864")
+     .text(d=>d.type==="truth"?"PERP":"YOU");
+  // reveal arc
+  if(guess&&truthShown){
+    gArc.datum({type:"LineString",coordinates:[guess,truthShown]}).attr("d",path).attr("opacity",.9);
+  }else{gArc.attr("opacity",0);}
+}
+function visible(lnglat){
+  // is the point on the near hemisphere?
+  const r=projection.rotate();
+  const c=d3.geoDistance(lnglat,[-r[0],-r[1]]);
+  return c<Math.PI/2;
+}
+
+/* ---- interaction: drag to rotate, click to drop pin ---- */
+let dragged=false;
+// Mouse-only rotate via native handlers. We deliberately do NOT use d3.drag()
+// here: on iOS Safari d3.drag attaches its own touch listeners to the SVG and
+// swallows the gesture before our unified touch handler (below) can see it,
+// which broke pinch-zoom on iPhone. Touch is owned entirely by that handler.
+(function(){
+  const node=svg.node();
+  let down=false;
+  node.addEventListener("mousedown",(ev)=>{ down=true; dragged=false; ev.preventDefault(); });
+  window.addEventListener("mousemove",(ev)=>{
+    if(!down) return;
+    dragged=true;
+    const r=projection.rotate();
+    const k=70/scale;
+    projection.rotate([r[0]+ev.movementX*k, r[1]-ev.movementY*k, r[2]]);
+    redraw();
+  });
+  window.addEventListener("mouseup",()=>{ down=false; });
+})();
+svg.on("click",(ev)=>{
+  if(dragged||locked||answered) return;
+  const [mx,my]=d3.pointer(ev);
+  const ll=projection.invert([mx,my]);
+  if(!ll||isNaN(ll[0])) return;
+  // reject clicks off the sphere
+  const r=projection.rotate();
+  if(d3.geoDistance([ll[0],ll[1]],[-r[0],-r[1]])>Math.PI/2) return;
+  guess=[ll[0],ll[1]];
+  drawMarks();
+  document.getElementById("lockBtn").disabled=false;
+  document.getElementById("hint").textContent="Pin dropped. Reposition, or 🔒 Lock it in.";
+});
+
+function setScale(s){scale=Math.max(150,Math.min(900,s));redraw();}
+function zoomBy(f){setScale(scale*f);}
+function spinHome(){projection.rotate([95,-38]);scale=205;redraw();}
+
+/* ---- touch interaction: 1 finger = rotate · 2 fingers = pinch-zoom · tap = pin ----
+   Self-contained so the gesture stays inside the globe and never zooms the page.
+   This is the ONLY touch listener on the globe (no d3.drag on touch), so the
+   two-finger pinch is never intercepted on iOS Safari. */
+(function(){
+  const el=document.getElementById("globe");
+  if(!el) return;
+  // iOS Safari fires its own pinch "gesture*" events at the document and can
+  // swallow the second touch, block them so our touch handler owns the pinch.
+  ["gesturestart","gesturechange","gestureend"].forEach(t=>{
+    document.addEventListener(t,e=>e.preventDefault(),{passive:false});
+  });
+
+  // wheel zoom (desktop), scroll up = zoom in
+  el.addEventListener("wheel",(ev)=>{
+    ev.preventDefault();
+    zoomBy(ev.deltaY<0?1.12:0.89);
+  },{passive:false});
+
+  // map a touch's client coords into the SVG's 0..W / 0..H viewBox space
+  function svgXY(t){
+    const r=el.getBoundingClientRect();
+    return [ (t.clientX-r.left)/r.width*W, (t.clientY-r.top)/r.height*H ];
+  }
+  const dist=(t)=>Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY);
+
+  let mode=0;            // 0=idle, 1=rotate, 2=pinch
+  let lastX=0,lastY=0;   // last single-finger position (SVG space)
+  let pinchStartDist=0, pinchStartScale=0;
+  let startX=0,startY=0, moved=0;  // for tap detection
+
+  el.addEventListener("touchstart",(ev)=>{
+    ev.preventDefault();              // keep the gesture off the page
+    if(ev.touches.length===2){
+      mode=2; dragged=true;
+      pinchStartDist=dist(ev.touches)||1;
+      pinchStartScale=scale;
+    }else if(ev.touches.length===1){
+      mode=1; dragged=false; moved=0;
+      const p=svgXY(ev.touches[0]);
+      lastX=startX=p[0]; lastY=startY=p[1];
+    }
+  },{passive:false});
+
+  el.addEventListener("touchmove",(ev)=>{
+    ev.preventDefault();
+    if(mode===2 && ev.touches.length>=2){
+      const d=dist(ev.touches);
+      setScale(pinchStartScale*(d/pinchStartDist));
+    }else if(mode===1 && ev.touches.length===1){
+      const p=svgXY(ev.touches[0]);
+      const dx=p[0]-lastX, dy=p[1]-lastY;
+      lastX=p[0]; lastY=p[1];
+      moved+=Math.abs(dx)+Math.abs(dy);
+      if(moved>4) dragged=true;       // treat as a spin, not a tap
+      const r=projection.rotate();
+      const k=70/scale;
+      projection.rotate([r[0]+dx*k, r[1]-dy*k, r[2]]);
+      redraw();
+    }
+  },{passive:false});
+
+  el.addEventListener("touchend",(ev)=>{
+    // Single quick tap (no real movement) drops a pin.
+    if(mode===1 && moved<=4 && !locked && !answered){
+      const ll=projection.invert([startX,startY]);
+      const r=projection.rotate();
+      if(ll && !isNaN(ll[0]) && d3.geoDistance([ll[0],ll[1]],[-r[0],-r[1]])<=Math.PI/2){
+        guess=[ll[0],ll[1]];
+        drawMarks();
+        document.getElementById("lockBtn").disabled=false;
+        document.getElementById("hint").textContent="Pin dropped. Reposition, or 🔒 Lock it in.";
+      }
+    }
+    if(ev.touches.length===0){ mode=0; pinchStartDist=0; }
+    else if(ev.touches.length===1){ // lifted one finger of a pinch -> resume rotate
+      mode=1; const p=svgXY(ev.touches[0]); lastX=p[0]; lastY=p[1]; moved=99;
+    }
+  });
+})();
+
+/* ---- game state ---- */
+let qi=0, score=0, warrants=0, answered=false, locked=false, timer=null, timeLeft=0, hintShown=false;
+
+const $=id=>document.getElementById(id);
+function fmtKm(km){return km<1000?Math.round(km)+" km":(km/1000).toFixed(1)+"k km";}
+
+function loadQ(){
+  const Q=SCENARIO.questions[qi];
+  answered=false;locked=false;guess=null;truthShown=null;
+  $("qNum").textContent=qi+1;
+  // crew thread stays hidden until the boss is revealed at Q5, it's a spoiler for how they connect
+  $("threadTag").textContent=Q.boss?SCENARIO.thread:"";
+  // identity stays hidden until the player guesses, the reveal happens in the trail bubble
+  $("tgt").textContent="TRACKING: SUSPECT #"+(qi+1);
+  $("suspect").textContent=Q.boss?"BOSS: UNKNOWN…":("HENCHMAN #"+(qi+1)+": UNKNOWN…");
+  $("stamp").textContent=Q.boss?"RINGLEADER":"On the Case";
+  $("stamp").style.background=Q.boss?"#7a0019":"var(--red)";
+  $("speech").textContent=Q.speech;
+  $("prompt").textContent=Q.q;
+  $("feedback").textContent="";$("feedback").className="feedback";
+  $("nextBtn").style.display="none";
+  $("lockBtn").disabled=true;
+  $("hint").textContent="Drag to spin. Click the globe to drop your pin.";
+  let html="";Q.clue.forEach(c=>{html+=`<div class="clue"><span class="pin">📍</span><span>${c}</span></div>`;});
+  $("clueList").innerHTML=html;
+  // reset the Q1 dwindle hint (shown later when the clock crosses 50%)
+  hintShown=false;
+  $("dwindle").classList.remove("on");
+  $("dwindleText").textContent="";
+  buildTrail();
+  drawMarks();
+  startClock();
+}
+
+function buildTrail(){
+  let h="";
+  SCENARIO.questions.forEach((Q,i)=>{
+    let cls="pending",label="?";
+    if(i<qi){cls=Q._result||"pending";label=Q._short||Q.who.split(" ")[0];}
+    else if(i===qi){cls="";label=Q.boss?"BOSS":"chasing…";}
+    h+=`<span class="stop ${cls}">${i+1}. ${label}</span>`;
+  });
+  $("trail").innerHTML=h;
+}
+
+function startClock(){
+  clearInterval(timer);
+  timeLeft=RAMP[qi].time;
+  const bar=$("clockbar"),fill=$("clockfill");
+  const total=timeLeft;
+  fill.style.width="100%";bar.classList.remove("low");
+  const Q=SCENARIO.questions[qi];
+  timer=setInterval(()=>{
+    timeLeft-=0.1;
+    const pct=Math.max(0,timeLeft/total)*100;
+    fill.style.width=pct+"%";
+    if(pct<28)bar.classList.add("low");
+    // Q1 only: surface the funny nudge once the clock dips past half
+    if(qi===0 && !hintShown && Q.hint && pct<=50 && !answered){
+      hintShown=true;
+      $("dwindleText").textContent=Q.hint;
+      $("dwindle").classList.add("on");
+    }
+    if(timeLeft<=0){clearInterval(timer);if(!answered)resolve(true);}
+  },100);
+}
+
+function lockGuess(){ if(!guess||locked||answered)return; resolve(false); }
+
+function resolve(timedOut){
+  if(answered)return;
+  answered=true;locked=true;clearInterval(timer);
+  $("lockBtn").disabled=true;
+  const Q=SCENARIO.questions[qi];
+  truthShown=[Q.answer[1],Q.answer[0]]; // stored as [lat,lng] -> need [lng,lat]
+  // bring truth into view if hidden
+  if(!visible(truthShown)){projection.rotate([-truthShown[0],-truthShown[1]]);}
+  drawMarks();
+
+  const ramp=RAMP[qi];
+  let dKm=Infinity, base=0;
+  if(guess && !timedOut){
+    const rad=d3.geoDistance(guess,truthShown); // radians
+    dKm=rad*6371;
+    // scoring curve: full credit within ramp.full, ~0 at ramp.zero
+    const t=Math.max(0,Math.min(1,(dKm-ramp.full)/(ramp.zero-ramp.full)));
+    base=Math.round(2000*(1-t)); // up to 2000 for distance
+    if(dKm<=ramp.full) base=2000;
+  }
+  // time bonus (only if a real guess landed)
+  const timeBonus = (guess&&!timedOut)? Math.round((timeLeft/ramp.time)*300) : 0;
+  const gained=base+ (base>0?timeBonus:0);
+  score+=gained;$("score").textContent=score;
+
+  const fb=$("feedback");
+  if(timedOut && !guess){
+    warrants++;Q._result="miss";Q._short="✗ "+Q.who.split(" ")[0];
+    fb.className="feedback bad";
+    fb.textContent="⏱ Time! No pin dropped, the "+(Q.boss?"boss":"henchman")+" vanished. It was "+Q.answerName+".";
+    $("speech").textContent=Q.boss?"The ringleader walked. That one stings.":"Slipped away while you hesitated. Burned a warrant.";
+  } else if(dKm<=ramp.full){
+    Q._result="hit";Q._short="✓ "+Q.who.split(" ")[0];
+    fb.className="feedback good";
+    fb.textContent="🎯 Bullseye! "+Q.answerName+", "+fmtKm(dKm)+" off. +"+gained+" pts"+(timeBonus?" (incl. +"+timeBonus+" speed)":"")+".";
+    $("speech").textContent=Q.boss?"GOT HER! The whole crew's in the bag. Outstanding, gumshoe.":"Cuffed. On to the next lead.";
+  } else if(dKm<=ramp.close){
+    Q._result="hit";Q._short="~ "+Q.who.split(" ")[0];
+    fb.className="feedback mid";
+    fb.textContent="📍 Close, "+Q.answerName+", "+fmtKm(dKm)+" off. +"+gained+" pts. Tighten it up next time.";
+    $("speech").textContent="In the right neighborhood. The trail's still warm.";
+  } else {
+    warrants++;Q._result="miss";Q._short="✗ "+Q.who.split(" ")[0];
+    fb.className="feedback bad";
+    fb.textContent="❄️ Cold trail, "+fmtKm(dKm)+" off. It was "+Q.answerName+(gained>0?" (+"+gained+" pts)":"")+". Warrant burned.";
+    $("speech").textContent="Way off. The suspect's long gone.";
+  }
+  $("warrants").textContent=warrants;
+  // now that they've guessed, reveal who the suspect was
+  $("suspect").textContent=(Q.boss?"BOSS: ":"HENCHMAN #"+(qi+1)+": ")+Q.who.toUpperCase();
+  $("tgt").textContent="TRACKING: "+Q.who.toUpperCase();
+  redraw();
+  buildTrail();
+  $("nextBtn").style.display="block";
+  $("nextBtn").textContent=(qi===SCENARIO.questions.length-1)?"Close the file ▶":"Next lead ▶";
+}
+
+$("nextBtn").addEventListener("click",()=>{
+  qi++;
+  if(qi>=SCENARIO.questions.length)endGame();
+  else loadQ();
+});
+
+function endGame(){
+  clearInterval(timer);
+  $("console").style.display="none";$("hud").style.display="none";
+  const solved=SCENARIO.questions.length-warrants;
+  let rank="Rookie Gumshoe",badge="🪪";
+  if(score>=8000){rank="SUPER SLEUTH";badge="🏆";}
+  else if(score>=6000){rank="Ace Detective";badge="🎖️";}
+  else if(score>=4000){rank="Field Agent";badge="🔦";}
+  $("winBadge").textContent=badge;
+  $("winRank").textContent=rank+(warrants===0?" · FLAWLESS SWEEP":"");
+  $("winTitle").textContent=warrants===0?"Boss in Cuffs! 🚓":"Case Closed";
+  // reveal the crew identity now, the payoff for working it out lead by lead
+  $("winMsg").innerHTML=`Case cracked: <b>${SCENARIO.title}</b> &mdash; ${SCENARIO.suspect} (${SCENARIO.thread}).<br>${SCENARIO.flavor||""}<br><br>Solved <b>${solved}/${SCENARIO.questions.length}</b> leads · final score <b>${score}</b>.<br>${warrants===0?"You ran down the entire crew without a single escape.":"Solid gridiron detective work, the boss is behind bars."}`;
+  $("winScreen").classList.add("on");
+}
+
+function restart(){ startRandom(); } // a new mystery crew each time
+
+/* ---- start a fresh case (random crew, identity hidden until Q5) ---- */
+let lastCrew=-1;
+function startRandom(){
+  // pick a random crew, avoiding an immediate repeat
+  let i=Math.floor(Math.random()*CREWS.length);
+  if(CREWS.length>1 && i===lastCrew) i=(i+1)%CREWS.length;
+  lastCrew=i;
+  SCENARIO=CREWS[i];
+  SCENARIO.questions.forEach(q=>{delete q._result;delete q._short;});
+  $("console").style.display="grid";$("hud").style.display="flex";
+  $("winScreen").classList.remove("on");
+  qi=0;score=0;warrants=0;
+  $("score").textContent=0;$("warrants").textContent=0;
+  spinHome();loadQ();
+}
+
+/* ---- boot ---- */
+function boot(){
+  if(typeof d3==="undefined"){ // CDN failed
+    $("globe").outerHTML='<div style="padding:40px;text-align:center;color:#ffb627;font-family:Special Elite,cursive">Globe needs an internet connection to load (D3). Reconnect and refresh.</div>';
+    return;
+  }
+  initSVG();
+  loadWorld(); // non-blocking: upgrades to real country borders when fetched
+  startRandom(); // straight into a random mystery case
+}
+if(document.readyState==="complete"){boot();}
+else{window.addEventListener("load",boot);}
+</script>
+</body>
+</html>
