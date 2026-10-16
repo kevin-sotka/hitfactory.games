@@ -4,6 +4,7 @@
 // is told again by the new station, so the ten beats always arrive in order.
 
 import { STORIES, ENVIRONMENTS, BEATS, MIDPOINT, INTRODUCES, SPLICES, SCENE_QUIPS } from './data.js';
+import { TEMPLATE_KEY, splitTemplate, castClip } from './script.js';
 
 export function mulberry32(seed) {
   let a = seed >>> 0;
@@ -45,7 +46,9 @@ export function castSlotOf(key) {
 }
 
 export class StoryEngine {
-  constructor({ stories = STORIES, envs = ENVIRONMENTS, seed = Date.now(), drift = true } = {}) {
+  // prefer(template, storyId): a hint that a take is recorded, so it gets picked first.
+  constructor({ stories = STORIES, envs = ENVIRONMENTS, seed = Date.now(), drift = true, prefer = null } = {}) {
+    this.prefer = prefer;
     this.stories = stories;
     this.envs = envs;
     this.rng = mulberry32(seed);
@@ -62,6 +65,7 @@ export class StoryEngine {
     this.envId = null;
     this.beat = 0;
     this.cast = {};
+    this.castKey = {};
     this.history = [];
     this.manualSwitch = false;
     this.drifted = false;
@@ -83,7 +87,20 @@ export class StoryEngine {
 
   rollCast(slots) {
     const pools = this.story(this.storyId).cast;
-    for (const slot of slots) this.cast[slot] = this.pick(pools[slot]);
+    for (const slot of slots) {
+      const i = Math.floor(this.rng() * pools[slot].length);
+      this.cast[slot] = pools[slot][i];
+      this.castKey[slot] = { home: this.storyId, i };
+    }
+  }
+
+  // Pick a take, favouring recorded ones when we know which those are.
+  pickTake(list, storyId) {
+    if (this.prefer) {
+      const ok = list.filter(t => this.prefer(t, storyId));
+      if (ok.length) return this.pick(ok);
+    }
+    return this.pick(list);
   }
 
   introduced(slot) { return INTRODUCES[slot] < this.beat; }
@@ -122,20 +139,61 @@ export class StoryEngine {
     };
   }
 
-  render(template, storyId) {
+  render(template, storyId) { return this.renderLine(template, storyId).text; }
+
+  // The line as text, plus the recordings it is made of. Each part covers
+  // [start, end) of the text; clip is null for bare punctuation between slots.
+  renderLine(template, storyId) {
     const ctx = this.context(storyId);
+    const story = this.story(storyId);
+    const key = TEMPLATE_KEY.get(template);
     const chosen = {};
-    const text = template.replace(SLOT_RE, (whole, key, short) => {
-      const k = short ? `${key}.${short}` : key;
-      if (k in chosen) return chosen[k];
-      let v;
-      if (ctx.pools[k]) v = this.pick(ctx.pools[k]);
-      else if (k in ctx) v = ctx[k];
-      if (v === undefined) throw new Error(`Unknown slot ${whole} in "${template}"`);
-      chosen[k] = v;
-      return v;
-    });
-    return tidy(text);
+    const parts = [];
+    let raw = '';
+    for (const p of splitTemplate(template, story)) {
+      let text, clip = null;
+      if (p.type === 'text') { text = p.text; if (key) clip = `${storyId}/${key}-${p.n}`; }
+      else if (p.type === 'punct') text = p.text;
+      else {
+        const k = p.key;
+        if (!(k in chosen)) {
+          let v, c = null;
+          if (ctx.pools[k]) {
+            const i = Math.floor(this.rng() * ctx.pools[k].length);
+            v = ctx.pools[k][i];
+            c = `${storyId}/${k}${i}`;
+          } else if (k in ctx) {
+            v = ctx[k];
+            c = this.slotClip(storyId, k);
+          }
+          if (v === undefined) throw new Error(`Unknown slot {${k}} in "${template}"`);
+          chosen[k] = { v, c };
+        }
+        text = chosen[k].v;
+        clip = chosen[k].c;
+      }
+      parts.push({ clip, start: raw.length, end: raw.length + text.length });
+      raw += text;
+    }
+    return { text: tidy(raw), parts };
+  }
+
+  slotClip(narrator, k) {
+    const base = k.split('.')[0];
+    const slot = base === 'aThing' ? 'thing' : base;
+    if (slot in INTRODUCES) {
+      const ck = this.castKey[slot];
+      if (!ck) return null;
+      const form = base === 'aThing' ? 'a' : (k.includes('.') || slot === 'thing') ? 'short' : 'intro';
+      return castClip(narrator, slot, ck.home, ck.i, form);
+    }
+    if (k in this.env(this.envId).vocab) return `${narrator}/${this.envId}-${k}`;
+    return null;
+  }
+
+  segment(kind, storyId, template) {
+    const { text, parts } = this.renderLine(template, storyId);
+    return { kind, storyId, text, parts };
   }
 
   // Templates whose cast slots have all been met by now.
@@ -148,9 +206,9 @@ export class StoryEngine {
 
   bridge(storyId) {
     const story = this.story(storyId);
-    const segs = [{ kind: 'arrive', storyId, text: this.render(this.pick(story.arrive), storyId) }];
+    const segs = [this.segment('arrive', storyId, this.pickTake(story.arrive, storyId))];
     const splices = this.usable(SPLICES);
-    if (splices.length) segs.push({ kind: 'splice', storyId, text: this.render(this.pick(splices), storyId) });
+    if (splices.length) segs.push(this.segment('splice', storyId, this.pickTake(splices, storyId)));
     return segs;
   }
 
@@ -162,7 +220,7 @@ export class StoryEngine {
 
     if (this.beat === MIDPOINT && this.drift && !this.manualSwitch && !this.drifted) {
       const target = this.pick(this.stories.filter(s => s.id !== from)).id;
-      segments.push({ kind: 'drift', storyId: from, text: this.render(this.pick(this.story(from).drift), from) });
+      segments.push(this.segment('drift', from, this.pickTake(this.story(from).drift, from)));
       segments.push({ kind: 'tune', storyId: target, text: '' });
       this.storyId = target;
       this.drifted = true;
@@ -172,13 +230,13 @@ export class StoryEngine {
     if (this.pendingArrival) {
       segments.push(...this.bridge(this.storyId));
     } else if (this.pendingQuip) {
-      segments.push({ kind: 'quip', storyId: this.storyId, text: this.render(this.pick(SCENE_QUIPS), this.storyId) });
+      segments.push(this.segment('quip', this.storyId, this.pickTake(SCENE_QUIPS, this.storyId)));
     }
     this.pendingArrival = false;
     this.pendingQuip = false;
 
     const variants = this.story(this.storyId).beats[this.beat];
-    segments.push({ kind: 'beat', storyId: this.storyId, text: this.render(this.pick(variants), this.storyId) });
+    segments.push(this.segment('beat', this.storyId, this.pickTake(variants, this.storyId)));
     this.envAtLastBeat = this.envId;
     return { beat: this.beat, name: BEATS[this.beat], storyId: this.storyId, segments };
   }

@@ -63,7 +63,8 @@ export function chooseVoice(voices, spec, avoid = new Set()) {
     const { score, accent } = scoreVoice(v, spec);
     // Prefer a voice no other station is using, so each accent sounds distinct.
     const s = score - (avoid.has(v.voiceURI || v.name) ? 25 : 0);
-    if (s > 0 && (!best || s > best.s)) best = { voice: v, s, accent };
+    // The penalty only ranks; a voice is never ruled out for being shared.
+    if (score > 0 && (!best || s > best.s)) best = { voice: v, s, accent };
   }
   return best ? { voice: best.voice, accent: best.accent } : { voice: null, accent: false };
 }
@@ -160,7 +161,9 @@ export class Narrator {
 
   say(sentence, story, gen, onWord) {
     const rate = story.voice.rate;
-    const expected = estimateSeconds(sentence.text, rate) * 1000 * (this.captionsOnly ? this.pace : 1);
+    const cast = this.cast.get(story.id);
+    const voiced = !this.captionsOnly && cast && cast.voice;
+    const expected = estimateSeconds(sentence.text, rate) * 1000 * (voiced ? 1 : this.pace);
     return new Promise(resolve => {
       let settled = false;
       let ticker = null;
@@ -180,7 +183,7 @@ export class Narrator {
       const fakeWords = (ms) => {
         const words = [...sentence.text.matchAll(/\S+/g)];
         let w = 0;
-        const step = ms / Math.max(1, words.length);
+        const step = (ms * 0.9) / Math.max(1, words.length); // every word lands before the line ends
         ticker = this.timers.setInterval(() => {
           if (w >= words.length) { this.timers.clearInterval(ticker); ticker = null; return; }
           onWord && onWord(sentence.start + words[w].index, words[w][0].length);
@@ -188,8 +191,7 @@ export class Narrator {
         }, step);
       };
 
-      const cast = this.cast.get(story.id);
-      if (this.captionsOnly || !cast || !cast.voice) {
+      if (!voiced) {
         fakeWords(expected);
         timers.push(this.timers.setTimeout(() => finish(true), expected));
         return;
