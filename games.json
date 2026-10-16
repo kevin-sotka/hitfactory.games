@@ -2,7 +2,7 @@
   "schema_version": 1,
   "studio": "Hit Factory Games",
   "domain": "hitfactory.games",
-  "updated": "2026-10-12",
+  "updated": "2026-10-16",
   "note": "Single source of truth for what exists in this folder and how done it is. Every game gets exactly one entry, flat list, regardless of which folder it lives in. Update in the same session as any real change. See CLAUDE.md for the rules.",
   "taxonomy": {
     "status": {
@@ -108,6 +108,21 @@
       "complexity": 2,
       "last_touched": "2026-07-08",
       "notes": "Game Album slate track 4. GDD only."
+    },
+    {
+      "slug": "chargers-san-diego",
+      "title": "Where in the World is Chargers, San Diego?",
+      "path": "hitfactory.games/games/chargers-san-diego",
+      "kind": "search",
+      "description": "A detective agency tracks a crew of five NFL players (four henchmen, one ringleader) across a real 3D globe. Each clue is football identity only, never geography; drop a pin on the college, stadium, or city it points to, lock it before the clock runs out, and the final lead names the boss. Ten crews (Patriots dynasty, Greatest Show on Turf, Legion of Boom, the 1983 QB draft class, and six more), a new one picked at random each run.",
+      "stack": "Single-file HTML, D3 orthographic globe with TopoJSON land shapes (CDN), great-circle scoring",
+      "status": "draft",
+      "live_url": null,
+      "repo": "https://github.com/kevin-sotka/hitfactory.games",
+      "value": 4,
+      "complexity": 2,
+      "last_touched": "2026-10-16",
+      "notes": "Lives in this repo at games/chargers-san-diego/, so it goes live at https://hitfactory.games/games/chargers-san-diego/ when merged (set status to shipped and fill live_url once verified). Started as demo/geo-game.html in the Gridiron Gazette project; this copy is the studio's and edits here do not flow back. Needs a network connection for D3/TopoJSON/fonts, a break from the house zero-dependency default. Built and playable end to end but untested (no harness, no critic round), and the name/likeness use of real NFL players and teams is flagged in gdd.md as worth a second look before promoting it hard. Scores are Claude-proposed, awaiting Kevin's ratification."
     },
     {
       "slug": "dawn-chorus",
