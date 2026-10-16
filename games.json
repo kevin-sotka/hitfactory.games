@@ -56,13 +56,13 @@
       "kind": "puzzle",
       "description": "Myst-style mechanism island. Four linked scenes of dials, organ pipes, and a water clock interlock into one grand machine that sings when solved.",
       "stack": "single-file HTML + assets folder; DOM/CSS transform layers, WebAudio, zero dependencies, mobile first",
-      "status": "draft",
-      "live_url": null,
-      "repo": null,
+      "status": "iterated",
+      "live_url": "https://kevin-sotka.github.io/ah-mah-day-us/",
+      "repo": "https://github.com/kevin-sotka/ah-mah-day-us",
       "value": 4,
       "complexity": 5,
-      "last_touched": "2026-09-03",
-      "notes": "Gauntlet run, giga-foundry. Bar ratified: Myst soul at modern fidelity, graded against Myst/Riven/Obduction screenshots on disk. Wave 0 passed (real Adobe Stock assets licensed, cut, graded to one palette). Wave 1 passed: the Dial Chamber is playable and tested, 16/16 on desktop and on mobile with real touch drags. Three of four scenes still unbuilt. Open critic gap: the mechanism does not yet inhabit the space the way the bar frames do. See giga-foundry/runs/ah-mah-day-us/PLAN.md and run_notes.md"
+      "last_touched": "2026-09-26",
+      "notes": "Gauntlet run, giga-foundry. Re-planned 2026-09-26: the Dial Chamber depth loop (four critic rounds on one hub) was closed by decision and the whole game built first. All four rooms playable cold load to finale: Dial Chamber, Pipe Room (4x4 pipe tiles, route carved per session), Water Clock Court (weights on a balance, hold the hand in the arc), Keystone Hall (seal glyphs drawn per session, tapped in lamp order), finale cross-cut. Built from plates already licensed, no new stock. Full real-input playthrough 30/30 on desktop across four seeds and on mobile touch, and 30/30 against the live URL. Not yet done: blind critic rounds on the three new rooms, the discovery playtest, real-device fps. Polish backlog in giga-foundry/runs/ah-mah-day-us/PLAN.md. Added as Channel 16 on hitfactory.games 2026-10-16."
     },
     {
       "slug": "aphelion",
