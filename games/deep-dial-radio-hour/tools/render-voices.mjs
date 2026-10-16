@@ -31,13 +31,14 @@ const opt = name => (args.includes(name) ? args[args.indexOf(name) + 1] : undefi
 const KEY = process.env.ELEVENLABS_API_KEY;
 const MODEL = 'eleven_multilingual_v2';
 
-// Who we are looking for in the voice library, and a stock voice if nothing fits.
+// Who we are looking for in the voice library (prefer: the voice picked from
+// the search results), and a stock voice if nothing fits.
 export const CASTING = {
-  prairie: { search: 'cowboy', accent: 'american', gender: 'male', age: 'old', fallback: 'pqHfZKP75CvOlQylNhV4', settings: { stability: 0.42, style: 0.4, speed: 0.95 } },
-  campground: { search: 'australian', accent: 'australian', gender: 'female', fallback: 'IKne3meq5aSn9XLyUdCD', settings: { stability: 0.38, style: 0.45, speed: 1.03 } },
-  docks: { search: 'irish storyteller', accent: 'irish', gender: 'male', age: 'old', fallback: 'JBFqnCBsd6RMkjVDRZzb', settings: { stability: 0.4, style: 0.45, speed: 0.97 } },
-  market: { search: 'noir detective', accent: 'british', gender: 'male', age: 'middle_aged', fallback: 'JBFqnCBsd6RMkjVDRZzb', settings: { stability: 0.55, style: 0.25, speed: 0.98 } },
-  trench: { search: 'scottish', accent: 'scottish', gender: 'female', fallback: 'Xb7hH8MSUJpSbSDYk0k2', settings: { stability: 0.42, style: 0.4, speed: 1.0 } },
+  prairie: { search: 'cowboy', accent: 'american', gender: 'male', age: 'old', prefer: 'YXpFCvM1S3JbWEJhoskW', fallback: 'pqHfZKP75CvOlQylNhV4', settings: { stability: 0.42, style: 0.4, speed: 0.95 } },
+  campground: { search: 'australian', accent: 'australian', gender: 'female', prefer: '5GZaeOOG7yqLdoTRsaa6', fallback: 'IKne3meq5aSn9XLyUdCD', settings: { stability: 0.38, style: 0.45, speed: 1.03 } },
+  docks: { search: '', accent: 'irish', gender: 'male', age: 'old', prefer: 'nTMUXLFSfbWmdKKy7nDC', fallback: 'JBFqnCBsd6RMkjVDRZzb', settings: { stability: 0.4, style: 0.45, speed: 0.97 } },
+  market: { search: 'london', accent: 'british', gender: 'male', age: 'middle_aged', prefer: 'Yex236tJMytMYoUWKVSJ', fallback: 'JBFqnCBsd6RMkjVDRZzb', settings: { stability: 0.55, style: 0.25, speed: 0.98 } },
+  trench: { search: 'scottish', accent: 'scottish', gender: 'female', prefer: 'TVmbglAk3F1GkiCoOq47', fallback: 'Xb7hH8MSUJpSbSDYk0k2', settings: { stability: 0.42, style: 0.4, speed: 1.0 } },
 };
 
 // How the voice should say things the captions write compactly.
@@ -108,7 +109,8 @@ async function cast() {
   const chosen = fs.existsSync(VOICES_FILE) ? JSON.parse(fs.readFileSync(VOICES_FILE, 'utf8')) : {};
   for (const [id, want] of Object.entries(CASTING)) {
     if (chosen[id] && !args.includes('--redo')) { console.log(`${id}: keeping ${chosen[id].name}`); continue; }
-    const q = new URLSearchParams({ page_size: '10', language: 'en', accent: want.accent, gender: want.gender, sort: 'usage_character_count_1y', search: want.search });
+    const q = new URLSearchParams({ page_size: '30', language: 'en', accent: want.accent, gender: want.gender, sort: 'usage_character_count_1y' });
+    if (want.search) q.set('search', want.search);
     if (want.age) q.set('age', want.age);
     let pick = null;
     try {
@@ -116,7 +118,7 @@ async function cast() {
       const list = res.voices || [];
       console.log(`\n${id} (${want.accent}, ${want.search}):`);
       for (const v of list.slice(0, 5)) console.log(`  ${v.name} [${v.voice_id}] ${v.descriptive || ''} ${v.use_case || ''} ${v.preview_url || ''}`);
-      pick = list[0];
+      pick = list.find(v => v.voice_id === want.prefer) || list[0];
     } catch (e) {
       // A key without voices_read/voices_write cannot cast at all; falling back would quietly ship wrong accents.
       if (/: 40[13] /.test(e.message)) throw new Error(`Casting needs an API key with voices_read and voices_write. ${e.message}`);
@@ -180,11 +182,16 @@ async function render() {
       if (++done % 25 === 0) console.log(`  ${done} rendered`);
     }
   };
-  await Promise.all([worker(), worker(), worker()]);
-  for (const [n, map] of Object.entries(said)) {
-    const f = path.join(OUT, n, 'takes.json');
-    const old = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : {};
-    fs.writeFileSync(f, JSON.stringify({ ...old, ...map }, null, 1));
+  // Record what was said even when a run stops part way (quota, network), so the
+  // clips that did render can still be flagged when the script wording changes.
+  try {
+    await Promise.all([worker(), worker(), worker()]);
+  } finally {
+    for (const [n, map] of Object.entries(said)) {
+      const f = path.join(OUT, n, 'takes.json');
+      const old = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : {};
+      fs.writeFileSync(f, JSON.stringify({ ...old, ...map }, null, 1));
+    }
   }
   console.log(`Rendered ${done} clips. Now run: node tools/build-audio.mjs`);
 }

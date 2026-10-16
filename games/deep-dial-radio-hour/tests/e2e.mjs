@@ -28,6 +28,9 @@ function serve() {
   return new Promise(resolve => {
     const server = http.createServer((req, res) => {
       const url = decodeURIComponent(req.url.split('?')[0]);
+      // This suite covers synthesis and device voices; the shipped recordings would mask
+      // them, so it sees an empty audio index (e2e-recordings.mjs covers recordings).
+      if (url === '/audio/index.json') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end('{"voice":{},"sfx":{},"music":{}}'); }
       let file = path.join(ROOT, url.endsWith('/') ? url + 'index.html' : url);
       if (!file.startsWith(ROOT) || !fs.existsSync(file)) { res.writeHead(404); return res.end(); }
       res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
